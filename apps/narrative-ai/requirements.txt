@@ -4,7 +4,7 @@ pydantic==2.5.3
 python-dotenv==1.0.0
 openai==1.7.2
 anthropicsdk==0.8.1
-langchain==0.1.0
+langchain==0.2.5
 langchain-openai==0.0.2
-aiohttp==3.9.1
-python-multipart==0.0.6
+aiohttp==3.13.3
+python-multipart==0.0.22
