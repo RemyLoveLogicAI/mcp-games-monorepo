@@ -1,6 +1,61 @@
 /**
- * Story Engine - Core game logic and state management
+ * Story Engine - Core game logic and state management for CYOA
+ *
+ * This package provides:
+ * - GameStateMachine for managing narrative state transitions
+ * - SaveManager for persisting game progress
+ * - StoryEngine for processing story logic
+ * - Type-safe story structures
+ *
+ * @example Basic Usage
+ * ```typescript
+ * import { createGameStateMachine, createInMemorySaveManager } from 'story-engine';
+ *
+ * const story = { id: 'my-story', scenes: [...], ... };
+ * const stateMachine = createGameStateMachine(story);
+ *
+ * // Start the game
+ * await stateMachine.transition({ type: 'START_GAME', userId: 'player1' });
+ *
+ * // Make choices
+ * await stateMachine.transition({ type: 'MAKE_CHOICE', choiceId: 'choice-1' });
+ *
+ * // Save progress
+ * const saveData = stateMachine.serialize();
+ * ```
+ *
+ * @packageDocumentation
  */
+
+// =============================================================================
+// State Machine
+// =============================================================================
+
+export {
+  GameStateMachine,
+  createGameStateMachine,
+  type StateMachineConfig,
+  type MCPQueryExecutor,
+  type SaveManager as SaveManagerInterface,
+} from './state-machine/GameStateMachine';
+
+// =============================================================================
+// Persistence
+// =============================================================================
+
+export {
+  SaveManager,
+  InMemoryStorage,
+  LocalStorageAdapter,
+  createInMemorySaveManager,
+  createLocalStorageSaveManager,
+  type StorageAdapter,
+  type SaveManagerConfig,
+} from './persistence/SaveManager';
+
+// =============================================================================
+// Legacy StoryEngine (for backward compatibility)
+// =============================================================================
 
 import type {
   Story,
@@ -12,7 +67,7 @@ import type {
 } from 'shared-types';
 
 /**
- * Story state representation
+ * Story state representation (legacy)
  */
 export interface StoryState {
   storyId: string;
@@ -24,7 +79,8 @@ export interface StoryState {
 }
 
 /**
- * Main story engine for managing game state
+ * Legacy story engine for managing game state
+ * @deprecated Use GameStateMachine instead
  */
 export class StoryEngine {
   private story: Story;
@@ -113,7 +169,6 @@ export class StoryEngine {
     const totalScenes = this.story.scenes.length;
     const visitedScenes = new Set([
       ...state.choiceHistory.map((choiceId) => {
-        // Find scene containing this choice
         const scene = this.story.scenes.find((s) =>
           s.choices.some((c) => c.id === choiceId)
         );
@@ -178,8 +233,6 @@ export class StoryEngine {
       }
     }
 
-    // TODO: Check MCP data requirements
-
     return true;
   }
 
@@ -217,5 +270,9 @@ export class StoryEngine {
     return newVariables;
   }
 }
+
+// =============================================================================
+// Re-export all types from shared-types
+// =============================================================================
 
 export * from 'shared-types';
