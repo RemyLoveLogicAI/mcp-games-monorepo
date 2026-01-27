@@ -1,184 +1,160 @@
 /**
- * MCP SDK - Client library for Model Context Protocol
+ * MCP SDK - Type-safe client library for Model Context Protocol
+ *
+ * This SDK provides:
+ * - Fluent query builder for semantic searches across multiple MCP servers
+ * - Pluggable authentication providers (OAuth2, API Key, Bearer Token, etc.)
+ * - Robust error handling with exponential backoff retry
+ * - In-memory caching with configurable TTL and eviction policies
+ * - Rate limiting and circuit breaker protection
+ *
+ * @example Basic Usage
+ * ```typescript
+ * import { MCPClient } from 'mcp-sdk';
+ *
+ * const client = new MCPClient({ debug: true });
+ *
+ * // Connect to servers
+ * await client.connect('github', {
+ *   serverUrl: 'https://api.github.com',
+ *   capabilities: ['read', 'search'],
+ * }, {
+ *   type: 'bearer_token',
+ *   token: process.env.GITHUB_TOKEN,
+ * });
+ *
+ * await client.connect('notion', {
+ *   serverUrl: 'https://api.notion.com/v1',
+ *   capabilities: ['read', 'search'],
+ * }, {
+ *   type: 'bearer_token',
+ *   token: process.env.NOTION_TOKEN,
+ * });
+ *
+ * // Execute semantic search across multiple servers
+ * const results = await client
+ *   .from(['github', 'notion'])
+ *   .semanticSearch('project roadmap and milestones')
+ *   .timeframe('this_month')
+ *   .format('markdown')
+ *   .maxResults(10)
+ *   .execute();
+ *
+ * console.log(results.aggregated);
+ * ```
+ *
+ * @example With Caching Configuration
+ * ```typescript
+ * const client = new MCPClient({
+ *   cache: {
+ *     enabled: true,
+ *     defaultTtlMs: 5 * 60 * 1000, // 5 minutes
+ *     maxEntries: 500,
+ *     evictionPolicy: 'lru',
+ *   },
+ *   retry: {
+ *     maxAttempts: 3,
+ *     baseDelayMs: 1000,
+ *     maxDelayMs: 30000,
+ *     backoffMultiplier: 2,
+ *   },
+ * });
+ * ```
+ *
+ * @packageDocumentation
  */
 
-import type {
-  MCPConnection,
-  MCPConfig,
-  SemanticQuery,
-  QueryResult,
-  Result,
-} from 'shared-types';
+// =============================================================================
+// Client
+// =============================================================================
 
-/**
- * MCP Client for managing connections and executing queries
- */
-export class MCPClient {
-  private connections: Map<string, MCPConnection> = new Map();
-  private cache: Map<string, QueryResult> = new Map();
-  private config: MCPClientConfig;
+export {
+  MCPClient,
+  createMCPClient,
+  type MCPClientConfig,
+  type HTTPClient,
+  type HTTPRequestConfig,
+  type HTTPResponse,
+} from './client/MCPClient';
 
-  constructor(config: MCPClientConfig = {}) {
-    this.config = {
-      defaultTimeout: config.defaultTimeout || 5000,
-      cacheEnabled: config.cacheEnabled ?? true,
-      retryAttempts: config.retryAttempts || 3,
-    };
-  }
+// =============================================================================
+// Query Builder
+// =============================================================================
 
-  /**
-   * Connect to an MCP server
-   */
-  async connect(
-    serverId: string,
-    config: MCPConfig
-  ): Promise<Result<MCPConnection>> {
-    try {
-      // TODO: Implement actual MCP connection logic
-      const connection: MCPConnection = {
-        id: serverId,
-        name: serverId,
-        type: 'custom',
-        status: 'connected',
-        config,
-      };
+export {
+  SemanticQueryBuilder,
+  createQueryBuilder,
+  QueryBuilderError,
+  type QueryExecutor,
+} from './query/SemanticQueryBuilder';
 
-      this.connections.set(serverId, connection);
+// =============================================================================
+// Cache
+// =============================================================================
 
-      return { success: true, value: connection };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error : new Error('Unknown error'),
-      };
-    }
-  }
+export { MCPCache } from './cache/MCPCache';
 
-  /**
-   * Disconnect from an MCP server
-   */
-  async disconnect(serverId: string): Promise<Result<void>> {
-    try {
-      this.connections.delete(serverId);
-      return { success: true, value: undefined };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error : new Error('Unknown error'),
-      };
-    }
-  }
+// =============================================================================
+// Authentication
+// =============================================================================
 
-  /**
-   * Execute a semantic query
-   */
-  async executeQuery<T = unknown>(
-    query: SemanticQuery
-  ): Promise<Result<QueryResult<T>>> {
-    try {
-      // Check cache first
-      if (this.config.cacheEnabled) {
-        const cached = this.cache.get(this.getCacheKey(query));
-        if (cached) {
-          return { success: true, value: cached as QueryResult<T> };
-        }
-      }
+export {
+  BaseAuthProvider,
+  APIKeyAuthProvider,
+  BearerTokenAuthProvider,
+  OAuth2AuthProvider,
+  BasicAuthProvider,
+  CustomAuthProvider,
+  AuthProviderRegistry,
+  createAuthProvider,
+  type AuthProviderConfig,
+} from './auth/AuthProviders';
 
-      // TODO: Implement actual query execution
-      const result: QueryResult<T> = {
-        data: {} as T,
-        metadata: {
-          source: query.server,
-          timestamp: new Date().toISOString(),
-          cached: false,
-        },
-      };
+// =============================================================================
+// Retry & Error Handling
+// =============================================================================
 
-      // Cache result
-      if (this.config.cacheEnabled) {
-        this.cache.set(this.getCacheKey(query), result as QueryResult);
-      }
+export {
+  withRetry,
+  createMCPError,
+  isRetryableError,
+  calculateBackoff,
+  sleep,
+  CircuitBreaker,
+  RateLimiter,
+  DEFAULT_RETRY_CONFIG,
+  type RetryContext,
+  type RetryOptions,
+  type CircuitBreakerConfig,
+  type RateLimitConfig,
+} from './utils/RetryHandler';
 
-      return { success: true, value: result };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error : new Error('Query failed'),
-      };
-    }
-  }
+// =============================================================================
+// Omni Agent (Multi-channel, Always-on)
+// =============================================================================
 
-  /**
-   * Get all active connections
-   */
-  getConnections(): MCPConnection[] {
-    return Array.from(this.connections.values());
-  }
+export {
+  OmniAgentClient,
+  createOmniAgent,
+  createMockChannelAdapter,
+  InMemoryPersistence,
+  type ChannelType,
+  type OmniMessage,
+  type UserContext,
+  type UserPreferences,
+  type ConversationEntry,
+  type ScheduledTask,
+  type PendingAction,
+  type ChannelAdapter,
+  type ChannelStatus,
+  type RichMessage,
+  type MessageHandler,
+  type OmniAgentConfig,
+  type PersistenceAdapter,
+} from './omni/OmniAgentClient';
 
-  /**
-   * Clear query cache
-   */
-  clearCache(): void {
-    this.cache.clear();
-  }
-
-  private getCacheKey(query: SemanticQuery): string {
-    return `${query.server}:${query.query}:${JSON.stringify(query.filters)}`;
-  }
-}
-
-/**
- * Fluent API for building semantic queries
- */
-export class SemanticQueryBuilder {
-  private query: Partial<SemanticQuery> = {};
-
-  server(serverId: string): this {
-    this.query.server = serverId;
-    return this;
-  }
-
-  query(queryText: string): this {
-    this.query.query = queryText;
-    return this;
-  }
-
-  filter(key: string, value: unknown): this {
-    if (!this.query.filters) {
-      this.query.filters = {};
-    }
-    this.query.filters[key] = value;
-    return this;
-  }
-
-  maxResults(max: number): this {
-    if (!this.query.options) {
-      this.query.options = {};
-    }
-    this.query.options.maxResults = max;
-    return this;
-  }
-
-  cachePolicy(policy: 'no-cache' | 'cache-first' | 'network-first'): this {
-    if (!this.query.options) {
-      this.query.options = {};
-    }
-    this.query.options.cachePolicy = policy;
-    return this;
-  }
-
-  build(): SemanticQuery {
-    if (!this.query.server || !this.query.query) {
-      throw new Error('Server and query are required');
-    }
-    return this.query as SemanticQuery;
-  }
-}
-
-export interface MCPClientConfig {
-  defaultTimeout?: number;
-  cacheEnabled?: boolean;
-  retryAttempts?: number;
-}
+// =============================================================================
+// Re-export all types from shared-types
+// =============================================================================
 
 export * from 'shared-types';
