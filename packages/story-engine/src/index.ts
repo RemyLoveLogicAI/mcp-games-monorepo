@@ -21,6 +21,8 @@ export interface StoryState {
   variables: StoryVariables;
   choiceHistory: string[];
   timestamp: string;
+  /** Available MCP data keys that have been loaded for this session */
+  mcpData?: Record<string, unknown>;
 }
 
 /**
@@ -49,6 +51,7 @@ export class StoryEngine {
       variables: { ...this.story.variables },
       choiceHistory: [],
       timestamp: new Date().toISOString(),
+      mcpData: {},
     };
   }
 
@@ -152,6 +155,20 @@ export class StoryEngine {
     };
   }
 
+  /**
+   * Update state with MCP data from external sources
+   */
+  setMcpData(
+    state: StoryState,
+    mcpData: Record<string, unknown>
+  ): StoryState {
+    return {
+      ...state,
+      mcpData: { ...state.mcpData, ...mcpData },
+      timestamp: new Date().toISOString(),
+    };
+  }
+
   // Private helper methods
 
   private getScene(sceneId: string): Scene {
@@ -178,7 +195,14 @@ export class StoryEngine {
       }
     }
 
-    // TODO: Check MCP data requirements
+    // Check MCP data requirements
+    if (choice.requirements.mcpData) {
+      for (const requiredKey of choice.requirements.mcpData) {
+        if (!state.mcpData || !(requiredKey in state.mcpData)) {
+          return false;
+        }
+      }
+    }
 
     return true;
   }
