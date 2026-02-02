@@ -2,7 +2,7 @@
 
 ## Overview
 
-MCP Games Monorepo is a Turborepo monorepo for a CYOA (Choose Your Own Adventure) engine that semantically queries connected MCPs (Model Context Protocols) to personalize narrative experiences using Prime AI Agents. This security policy outlines our commitment to maintaining the highest standards of security for our platform, protecting user data, game narratives, AI agent interactions, and the integrity of our gaming ecosystem.
+MCP Games Monorepo is a Turborepo-based monorepo for a Choose Your Own Adventure (CYOA) engine that semantically queries connected Model Context Protocol (MCP) servers to personalize narrative experiences using Prime AI Agents. This security policy outlines our commitment to maintaining the highest standards of security for our gaming platform, protecting user data, AI agent integrity, and the reliability of our narrative engine.
 
 **Repository**: https://github.com/RemyLoveLogicAI/mcp-games-monorepo
 
@@ -12,7 +12,7 @@ We actively maintain and provide security updates for the following versions:
 
 | Version | Branch | Supported | Status |
 | ------- | ------ | --------- | ------ |
-| Latest (main) | main | ✅ Yes | Production |
+| Latest (main) | main | ✅ Yes | Active Development |
 | Development | develop | ✅ Yes | Active Development |
 | Previous Release | release/* | ✅ Yes | Security Patches Only |
 | < Previous Release | archived | ❌ No | End of Life |
@@ -24,77 +24,90 @@ We actively maintain and provide security updates for the following versions:
 Our comprehensive security policy covers:
 
 ### 🎮 Game Engine & Narrative Security
-- CYOA narrative engine integrity
-- Story graph traversal security
+- CYOA engine logic integrity and validation
+- Story graph manipulation prevention
 - Player choice validation and sanitization
-- Game state manipulation prevention
-- Save game data integrity
+- Save state tampering detection
+- Game state encryption and verification
 - Narrative injection prevention
-- Player progress authentication
-- Cross-game contamination prevention
+- Player progression integrity
+- Anti-cheat mechanisms for narrative paths
 
 ### 🤖 AI Agent Security
-- Prime AI agent prompt injection prevention
-- Agent response validation and filtering
-- MCP query authentication and authorization
-- Semantic search security
-- AI-generated content moderation
-- Agent behavior monitoring and anomaly detection
-- Multi-agent interaction security
-- Agent context isolation and sandboxing
-- LLM hallucination detection and mitigation
-
-### 🔐 Application & API Security
-- TypeScript/JavaScript codebase vulnerabilities
-- Node.js runtime security
-- REST API and GraphQL endpoint security
-- Authentication and authorization (JWT, OAuth2)
-- Session management and token lifecycle
-- Input validation and sanitization
-- Cross-Site Scripting (XSS) prevention
-- Cross-Site Request Forgery (CSRF) protection
-- SQL/NoSQL injection prevention
-- Rate limiting and DDoS mitigation
-- WebSocket security for real-time gameplay
-
-### 📦 Monorepo Security
-- Package isolation and boundary enforcement
-- Shared dependency vulnerability management
-- Workspace access control
-- Build pipeline security
-- Inter-package communication security
-- Turborepo cache security
-- Development vs. production environment separation
-- Secret management across packages
+- Prime AI Agent authentication and authorization
+- Agent behavior validation and monitoring
+- Prompt injection prevention
+- AI response filtering and sanitization
+- Agent context isolation
+- Model output validation
+- Agent privilege escalation prevention
+- AI hallucination detection and mitigation
+- Agent-to-agent communication security
+- Agent resource usage limits and rate limiting
 
 ### 🔌 MCP Integration Security
-- Model Context Protocol (MCP) connection security
-- Third-party MCP server validation
-- MCP query injection prevention
-- Response validation and sanitization
-- MCP authentication and authorization
-- Data privacy in MCP interactions
-- MCP server reputation and trust management
+- MCP server connection authentication
+- Secure MCP protocol implementation
+- Server trust verification
+- Data transmission encryption
+- MCP response validation
+- Server timeout and error handling
+- Connection pooling security
+- API key and credential management
+- Server enumeration prevention
 
-### 📊 Data Privacy & Compliance
-- GDPR compliance for EU users
+### 🏗️ Monorepo Security Structure
+- Package dependency isolation
+- Inter-package communication security
+- Workspace boundary enforcement
+- Build artifact verification
+- Shared configuration security
+- Package version consistency
+- Circular dependency prevention
+- Build cache security
+
+### 💻 TypeScript/Node.js Security
+- TypeScript type safety and validation
+- Node.js runtime vulnerabilities
+- NPM/PNPM package security
+- Dependency vulnerability scanning
+- Environment variable protection
+- Prototype pollution prevention
+- Buffer overflow prevention
+- Regex denial of service (ReDoS) prevention
+- Path traversal protection
+- Code injection prevention
+
+### 🌐 API & Network Security
+- REST API endpoint security
+- GraphQL query validation and depth limiting
+- WebSocket connection security
+- CORS policy enforcement
+- Rate limiting and DDoS protection
+- Authentication token management (JWT, session)
+- API versioning and deprecation
+- Request validation and sanitization
+
+### 📊 Data Privacy & Player Protection
+- Player data encryption (at rest and in transit)
+- Personally Identifiable Information (PII) protection
+- Game progress and save data integrity
+- Chat/interaction logs privacy
+- GDPR compliance for EU players
 - CCPA compliance for California residents
-- Player data encryption at rest and in transit
-- Personal Identifiable Information (PII) protection
-- Right to erasure implementation
 - Data minimization principles
-- Player analytics privacy
-- AI training data privacy
+- Right to erasure implementation
+- Player consent management
 
-### 🎯 Game-Specific Security
-- Player account security
-- Anti-cheat mechanisms
-- Game economy protection (if applicable)
-- Multiplayer session security
-- Leaderboard integrity
-- Achievement/trophy validation
-- In-game chat moderation
-- Player reporting system
+### 🔒 Frontend Security
+- Cross-Site Scripting (XSS) prevention
+- Cross-Site Request Forgery (CSRF) protection
+- Content Security Policy (CSP)
+- Subresource Integrity (SRI)
+- Secure cookie handling
+- Local storage security
+- Session management
+- Client-side validation
 
 ## Reporting a Vulnerability
 
@@ -110,7 +123,7 @@ We take all security vulnerabilities seriously and are committed to rapid respon
 **For Critical/Emergency Issues:**
 - **Direct Contact**: @RemyLoveLogicAI on GitHub
 - **Response SLA**: < 12 hours for critical issues
-- **24/7 Emergency Contact**: security@lovelogicai.com
+- **24/7 Emergency Response**: For active exploits or data breaches
 
 ### 📝 Vulnerability Report Template
 
@@ -121,38 +134,40 @@ Please include the following in your report:
 Brief description of the issue
 
 ## Vulnerability Type
-[ ] AI Agent Security (Prompt Injection, Agent Manipulation)
-[ ] Game Engine Vulnerability
-[ ] MCP Integration Security
-[ ] Web Application Security
-[ ] API Security
+[ ] AI Agent Security (prompt injection, model manipulation)
+[ ] Game Engine Security (state tampering, progression exploits)
+[ ] MCP Integration Security (server trust, protocol vulnerabilities)
+[ ] API Security (endpoint vulnerabilities, authentication bypass)
 [ ] Authentication/Authorization
 [ ] Data Leak/Privacy Issue
 [ ] TypeScript/Node.js Security
-[ ] Monorepo Security
 [ ] Dependency Vulnerability
+[ ] Monorepo Security (cross-package vulnerabilities)
 [ ] Other: ___________
 
 ## Severity Assessment
-[ ] Critical - Immediate threat to player data/game integrity
-[ ] High - Major security risk
+[ ] Critical - Game-breaking exploit, data breach, AI manipulation
+[ ] High - Significant security risk or gameplay exploit
 [ ] Medium - Moderate security concern
 [ ] Low - Minor security improvement
 
 ## Affected Components
-- Package/App: 
+- Repository/Branch: 
+- Package(s): (e.g., apps/game-engine, packages/ai-agent)
 - File(s): 
-- Function/Module: 
-- Endpoint: 
+- Function/Component: 
+- Endpoint/Route: 
 
 ## Detailed Description
 [Comprehensive explanation of the vulnerability]
 
 ## Impact Analysis
 - Potential damage:
-- Affected users/systems:
+- Affected users/players:
 - Attack complexity:
 - Required privileges:
+- AI agent manipulation potential:
+- Game integrity impact:
 
 ## Reproduction Steps
 1. 
@@ -178,28 +193,29 @@ Brief description of the issue
 
 | Severity | CVSS Score | Impact | Response Time | Resolution Target |
 |----------|-----------|---------|---------------|-------------------|
-| 🔴 **Critical** | 9.0-10.0 | Player data breach, game system compromise, AI agent manipulation | < 12 hours | 24-48 hours |
-| 🟠 **High** | 7.0-8.9 | Significant security risk, limited exploitation | < 24 hours | 7-14 days |
-| 🟡 **Medium** | 4.0-6.9 | Moderate risk, specific conditions required | < 72 hours | 30-60 days |
-| 🟢 **Low** | 0.1-3.9 | Minimal risk, security hardening | < 7 days | Next release cycle |
+| 🔴 **Critical** | 9.0-10.0 | AI agent takeover, mass data breach, game engine compromise | < 12 hours | 24-48 hours |
+| 🟠 **High** | 7.0-8.9 | Major gameplay exploit, player data leak, AI manipulation | < 24 hours | 7-14 days |
+| 🟡 **Medium** | 4.0-6.9 | Limited exploit, minor data exposure, specific conditions | < 72 hours | 30-60 days |
+| 🟢 **Low** | 0.1-3.9 | Minimal risk, security hardening opportunity | < 7 days | Next release cycle |
 
 ### ⚡ Critical Vulnerability Fast Track
 
 For vulnerabilities that meet any of these criteria:
 
 - Active exploitation in the wild
-- Direct threat to player data (PII exposure)
-- AI agent compromise allowing unauthorized actions
-- Game engine manipulation affecting multiple players
-- Zero-day vulnerabilities in dependencies
+- AI agent manipulation enabling unauthorized actions
+- Mass player data breach
+- Game state manipulation affecting multiple users
+- Zero-day vulnerabilities in core dependencies
+- MCP server trust bypass
 - Privilege escalation to admin/system level
-- MCP server compromise
 
 **Immediate Actions:**
 1. Contact security team within 1 hour of discovery
 2. Incident response team activated
 3. Emergency patch deployed within 24-48 hours
 4. Public disclosure coordinated with stakeholders
+5. Affected players notified immediately
 
 ## Responsible Disclosure Policy
 
@@ -210,16 +226,17 @@ For vulnerabilities that meet any of these criteria:
 - Provide regular status updates (minimum weekly)
 - Credit you publicly (if desired) once resolved
 - Not pursue legal action against good-faith researchers
-- Consider you for our bug bounty program (when launched)
+- Consider you for recognition and future bug bounty program
 - Work collaboratively to understand and fix the issue
 
 ❌ **We ask that you:**
 - Allow reasonable time (90 days) before public disclosure
-- Make good faith efforts to avoid harm
+- Make good faith efforts to avoid harm to players
 - Do not exploit the vulnerability beyond demonstration
-- Do not access, modify, or delete other users' data
+- Do not access, modify, or delete player data
 - Do not perform actions that degrade service availability
 - Do not publicly disclose before coordinated release
+- Do not impact gameplay experience for other players
 
 ### Coordinated Disclosure Timeline
 
@@ -233,174 +250,271 @@ For vulnerabilities that meet any of these criteria:
 **Exceptions:**
 - Critical vulnerabilities may have accelerated timelines
 - Active exploitation triggers immediate public disclosure
-- Vendor-coordinated disclosures follow CVD guidelines
+- Coordinated disclosures follow industry CVD guidelines
 
 ## Monorepo Security Architecture
 
-### 📦 Package Security Model
+### 📦 Package Structure Security
 
-Our monorepo consists of multiple packages with different security requirements:
+```
+mcp-games-monorepo/
+├── apps/
+│   ├── game-engine/          # CYOA engine core
+│   ├── web-client/           # Frontend application
+│   └── admin-dashboard/      # Administrative interface
+└── packages/
+    ├── ai-agent/             # Prime AI Agent logic
+    ├── mcp-client/           # MCP protocol client
+    ├── narrative-parser/     # Story graph parser
+    ├── state-manager/        # Game state management
+    └── shared-utils/         # Common utilities
+```
 
-**Apps:**
-- Game client applications
-- Admin dashboards
-- API servers
+### 🔐 Security Boundaries
 
-**Packages:**
-- Shared libraries
-- Game engine core
-- AI agent modules
-- MCP integration layer
-- Utility packages
+**Each package maintains:**
+- Independent security audits
+- Isolated dependency trees (where possible)
+- Version-locked critical dependencies
+- Package-specific security policies
+- Access control for sensitive operations
 
-### 🔒 Security Boundaries
+**Inter-Package Communication:**
+- Type-safe interfaces only
+- Input validation at boundaries
+- No direct file system access across packages
+- Centralized configuration management
+- Audit logging for critical operations
 
-Each package maintains:
-- Independent dependency management
-- Isolated security policies
-- Separate authentication contexts
-- Package-specific rate limits
-- Individual audit logs
+### 🛡️ Build Security
 
-### 🛡️ Workspace Security
-
-- **Access Control**: Role-based access to specific packages
-- **Build Isolation**: Separate build environments per package
-- **Secret Management**: Package-scoped environment variables
-- **Dependency Scanning**: Per-package vulnerability assessments
-- **Code Signing**: Signed commits for production packages
+- **Turbo Cache Security**: Cache validation and integrity checks
+- **Build Isolation**: Hermetic builds where possible
+- **Artifact Signing**: Signed build outputs for verification
+- **Dependency Locking**: Committed lockfiles (pnpm-lock.yaml)
+- **Provenance**: Build provenance tracking
 
 ## AI Agent Security Practices
 
 ### 🤖 Prime AI Agent Protection
 
-**Prompt Injection Prevention:**
-- Input sanitization and validation
-- Context boundary enforcement
-- System prompt protection
-- User input separation from instructions
-- Agent behavior monitoring
+**Input Validation:**
+- Strict prompt sanitization
+- Context length limits
+- Token usage monitoring
+- Injection pattern detection
+- Malicious intent filtering
 
-**Response Validation:**
-- Output filtering and moderation
-- Harmful content detection
-- Factuality verification
-- Hallucination detection
-- Response length limits
+**Output Validation:**
+- Response content filtering
+- Narrative coherence checking
+- Forbidden content detection
+- Player safety filters
+- Age-appropriate content enforcement
 
 **Agent Isolation:**
-- Per-player agent context isolation
-- Memory sandboxing
-- Resource usage limits
-- Cross-agent communication restrictions
-- Agent permission boundaries
+- Sandboxed execution environments
+- Resource usage limits (CPU, memory, tokens)
+- Rate limiting per player/session
+- Agent state isolation
+- Cross-contamination prevention
 
-### 🔌 MCP Integration Security
+**Monitoring & Auditing:**
+- Real-time behavior monitoring
+- Anomaly detection systems
+- Audit logs for all AI decisions
+- Player feedback integration
+- Performance metrics tracking
 
-**MCP Server Validation:**
-- Server authentication and authorization
-- TLS/SSL encryption for all MCP connections
-- Server reputation scoring
-- Response time monitoring
-- Rate limiting per MCP server
+### 🧠 Prompt Injection Prevention
 
-**Query Security:**
-- Query sanitization
-- Parameter validation
-- Semantic search query injection prevention
-- Result set size limits
-- Query cost/complexity limits
+**Defense Layers:**
+1. **Input Sanitization**: Remove/escape special characters and command sequences
+2. **Context Separation**: Clear boundaries between system prompts and user input
+3. **Output Filtering**: Validate AI responses before presentation
+4. **Behavioral Analysis**: Detect unusual agent behavior patterns
+5. **Rollback Capability**: Quick recovery from compromised states
 
-**Data Privacy:**
-- Player data anonymization in MCP queries
-- PII stripping before external MCP calls
-- Encryption of sensitive query parameters
-- Audit logging of all MCP interactions
-- Player consent management
+**Known Attack Vectors:**
+- Direct instruction override attempts
+- Role-play manipulation
+- Context window poisoning
+- Multi-turn exploitation
+- Encoding-based bypasses
+
+## MCP Integration Security
+
+### 🔌 Server Trust Model
+
+**MCP Server Authentication:**
+- Server certificate validation
+- API key rotation policies
+- Mutual TLS where supported
+- Server allowlist management
+- Regular security audits of connected servers
+
+**Data Protection:**
+- Encrypted connections (TLS 1.3+)
+- Minimal data sharing principle
+- Player data anonymization
+- Query result validation
+- Response size limits
+
+**Failure Handling:**
+- Graceful degradation on server failure
+- Timeout configurations
+- Circuit breaker patterns
+- Fallback mechanisms
+- Error message sanitization (no info leakage)
+
+### 📡 Protocol Security
+
+- **Query Validation**: Strict schema enforcement
+- **Response Verification**: Type and structure validation
+- **Replay Attack Prevention**: Request nonces and timestamps
+- **DoS Protection**: Rate limiting and query complexity limits
+- **Version Compatibility**: Supported protocol version checking
 
 ## TypeScript/Node.js Security
 
-### 📝 Code Security Practices
+### 📋 Development Security Checklist
 
-**TypeScript Best Practices:**
-- Strict type checking enabled
-- No implicit `any` types
-- Null safety checks
-- Exhaustive type guards
-- Proper error handling with typed errors
+**Every Pull Request Must Include:**
+- [ ] Input validation for all external data
+- [ ] Type safety enforcement (no `any` types without justification)
+- [ ] Environment variable validation on startup
+- [ ] Error handling that doesn't leak sensitive info
+- [ ] Dependency audit passed (no high/critical vulnerabilities)
+- [ ] No hardcoded secrets or credentials
+- [ ] SQL injection prevention (if using databases)
+- [ ] XSS prevention in frontend components
+- [ ] CSRF protection for state-changing operations
+- [ ] Rate limiting on API endpoints
+- [ ] Authentication/authorization checks
+- [ ] Audit logging for sensitive operations
 
-**Node.js Security:**
-- Latest LTS version usage
-- Security headers (Helmet.js)
-- CORS configuration
-- Environment variable validation
-- Process isolation
+### 🔧 Node.js Best Practices
+
+**Runtime Security:**
+- Use latest LTS Node.js version
+- Enable strict mode (`"use strict"`)
+- Avoid `eval()` and `Function()` constructors
+- Validate all JSON.parse() inputs
+- Use `crypto` module for cryptographic operations
+- Set appropriate file permissions
+- Run with least privilege (non-root)
 
 **Dependency Management:**
-- Regular `npm audit` and `pnpm audit`
+- Lock all dependency versions (pnpm-lock.yaml)
+- Regular `pnpm audit` checks
 - Automated Dependabot updates
-- Lock file integrity verification
-- Supply chain security (npm provenance)
-- Minimal dependency policy
+- Review all dependency changes
+- Minimize dependency count
+- Prefer well-maintained packages
+- Check package signatures where available
 
-### 🔐 Runtime Security
+### 🎯 Common Vulnerability Prevention
 
-**Environment:**
-- Node.js runtime hardening
-- Process sandboxing
-- Resource limits (CPU, memory)
-- File system access restrictions
-- Network access control
+**Prototype Pollution:**
+```typescript
+// ❌ Unsafe
+Object.assign(target, userInput);
 
-**Secrets Management:**
-- Environment variables for secrets
-- No hardcoded credentials
-- Secret rotation policies
-- Encrypted secrets at rest
-- Secret scanning in CI/CD
+// ✅ Safe
+const safeAssign = (target: object, source: object) => {
+  return Object.assign(Object.create(null), target, source);
+};
+```
+
+**ReDoS (Regular Expression Denial of Service):**
+```typescript
+// ❌ Unsafe - catastrophic backtracking
+const unsafeRegex = /^(a+)+$/;
+
+// ✅ Safe - linear time complexity
+const safeRegex = /^a+$/;
+```
+
+**Path Traversal:**
+```typescript
+// ❌ Unsafe
+const filePath = path.join(baseDir, userInput);
+
+// ✅ Safe
+import { resolve, normalize, relative } from 'path';
+const safePath = normalize(path.join(baseDir, userInput));
+if (!safePath.startsWith(resolve(baseDir))) {
+  throw new Error('Path traversal attempt detected');
+}
+```
 
 ## Game Engine Security
 
 ### 🎮 CYOA Engine Protection
 
-**Narrative Security:**
-- Story graph validation
-- Choice validation and sanitization
-- State transition verification
-- Save game integrity checks
-- Anti-tampering mechanisms
+**Story Graph Integrity:**
+- Validate all narrative nodes and edges
+- Prevent circular reference exploits
+- Enforce maximum graph depth
+- Validate choice availability conditions
+- Prevent state manipulation via graph walking
 
-**Player Data:**
-- Encrypted save games
-- Progress validation
-- Achievement verification
-- Multiplayer state synchronization
-- Player session management
+**Player Choice Validation:**
+- Server-side choice validation
+- Valid state transition checks
+- Choice availability verification
+- Duplicate choice prevention
+- Timing attack prevention
 
-**Content Security:**
-- User-generated content moderation
-- Narrative injection prevention
-- Asset validation
-- Script execution sandboxing
-- Content filtering
+**Save State Security:**
+- Encrypted save data (AES-256-GCM)
+- Save state integrity checksums (HMAC-SHA256)
+- Version compatibility checks
+- Tamper detection and rejection
+- Save state size limits
+- Backup and recovery mechanisms
+
+**Multiplayer/Shared Narratives:**
+- Player action isolation
+- Shared state conflict resolution
+- Anti-griefing protections
+- Player interaction rate limits
+- Vote manipulation prevention
+
+### 🎲 Random Number Generation
+
+**Use Cryptographically Secure RNG for:**
+- Critical game decisions
+- Loot generation
+- Procedural content generation affecting gameplay
+- Player matchmaking
+
+```typescript
+// ✅ Secure RNG
+import { randomInt } from 'crypto';
+const secureRandom = randomInt(0, 100);
+
+// ❌ Predictable (only for non-critical UI)
+const insecureRandom = Math.random() * 100;
+```
 
 ## Security Update & Patch Management
 
-### For Platform Users
+### For Players & Integrators
 
 📢 **Stay Informed:**
 - ⭐ Star this repository for release notifications
 - 🔔 Subscribe to GitHub Security Advisories
-- 📧 Join our security mailing list: security@lovelogicai.com
+- 📧 Join our security mailing list: security-updates@lovelogicai.com
 - 🐦 Follow official announcements
 
 🔄 **Update Process:**
 1. Review release notes and security advisories
 2. Test updates in development environment
-3. Backup critical data and configurations
+3. Backup game data and configurations
 4. Deploy updates during maintenance windows
-5. Verify successful deployment
-6. Monitor for any issues
+5. Verify successful deployment and game functionality
+6. Monitor for any issues or anomalies
 
 ### For Contributors & Developers
 
@@ -410,25 +524,11 @@ Each package maintains:
 - Dependency updates reviewed for security impacts
 - Secret scanning and leak prevention
 - Signed commits for production branches
-- TypeScript strict mode enabled
-
-📋 **Development Checklist:**
-- [ ] Input validation implemented
-- [ ] Authentication/authorization verified
-- [ ] Injection prevention confirmed (SQL, NoSQL, prompt)
-- [ ] XSS protection in place
-- [ ] CSRF tokens implemented
-- [ ] Rate limiting configured
-- [ ] Error handling doesn't leak sensitive info
-- [ ] Cryptographic functions use secure algorithms
-- [ ] Dependencies audited for vulnerabilities
-- [ ] Security tests written and passing
-- [ ] AI agent outputs validated
-- [ ] MCP queries sanitized
+- Security-focused CI/CD checks
 
 ## Dependency Security
 
-### 📦 Dependency Management
+### 📦 Dependency Management (PNPM)
 
 **Monitoring:**
 - Dependabot alerts enabled
@@ -444,47 +544,56 @@ Each package maintains:
 - **Low**: Quarterly updates
 - **Major versions**: Evaluated per release
 
-**Supply Chain Security:**
-- Lock files (`pnpm-lock.yaml`) committed
-- Verify package signatures
-- Use private registry mirror for critical dependencies
+**Workspace Security:**
+- Isolated node_modules per package
+- Workspace protocol for internal deps
+- Version consistency across workspace
+- Phantom dependencies prevention
+- Hoisting configuration review
+
+### 🔒 Supply Chain Security
+
+- Lockfile integrity verification
+- Package signature verification
+- Private registry mirror for critical deps
 - Vendor critical dependencies when necessary
-- Monitor for typosquatting attacks
+- Regular dependency tree audits
 
 ## Security Testing
 
 ### 🧪 Regular Security Assessments
 
-| Assessment Type | Frequency | Last Completed | Next Scheduled |
-|----------------|-----------|----------------|----------------|
-| Automated Scanning | Continuous | *Ongoing* | *Ongoing* |
-| Dependency Audit | Weekly | *[Date]* | *[Date]* |
-| Penetration Testing | Quarterly | *[TBD]* | *[TBD]* |
-| AI Agent Security Review | Monthly | *[TBD]* | *[TBD]* |
-| Game Engine Audit | Bi-annually | *[TBD]* | *[TBD]* |
+| Assessment Type | Frequency | Scope | Next Scheduled |
+|----------------|-----------|-------|----------------|
+| Automated Scanning | Continuous | All packages | *Ongoing* |
+| Dependency Audit | Daily | All dependencies | *Automated* |
+| Static Code Analysis | Per commit | Changed code | *Automated* |
+| AI Agent Testing | Weekly | Agent behavior | *Scheduled* |
+| Penetration Testing | Quarterly | Full stack | *TBD* |
+| Game Exploit Testing | Monthly | CYOA engine | *TBD* |
 
 ### 🔧 Security Tools
 
 **Static Analysis:**
 - ESLint with security plugins
 - TypeScript strict mode
-- SonarQube for code quality
 - Semgrep for security patterns
-- Custom game engine validators
+- SonarQube for code quality
+- GitGuardian for secret detection
 
 **Dynamic Testing:**
-- Jest for security unit tests
-- Playwright/Cypress for E2E security testing
-- OWASP ZAP for web security
-- Custom AI agent testing suite
-- Game state fuzzing
+- Jest security test suites
+- Playwright for E2E security tests
+- API security testing (OWASP ZAP)
+- AI agent behavior testing
+- Load testing for DoS resilience
 
 **Monitoring:**
 - GitHub Advanced Security
 - Sentry for error tracking
-- Custom game analytics with security monitoring
-- AI agent behavior monitoring
-- MCP interaction logging
+- Performance monitoring
+- AI agent behavior analytics
+- Player safety monitoring
 
 ## Compliance & Standards
 
@@ -500,14 +609,14 @@ Each package maintains:
 ✅ **Privacy Regulations:**
 - GDPR (General Data Protection Regulation)
 - CCPA (California Consumer Privacy Act)
-- COPPA considerations (if applicable to audience)
+- COPPA considerations (for younger players)
 - Data minimization principles
 
-✅ **Gaming Standards:**
-- Responsible gaming practices
-- Age-appropriate content filtering
-- Player protection mechanisms
-- Fair play enforcement
+✅ **Gaming Industry:**
+- Player data protection best practices
+- Age-appropriate content guidelines
+- Fair play and anti-cheat standards
+- Responsible AI usage in gaming
 
 ## Bug Bounty Program
 
@@ -515,24 +624,24 @@ Each package maintains:
 
 | Severity | Reward Range | Recognition |
 |----------|-------------|-------------|
-| Critical | $1,000 - $10,000 | Hall of Fame + Public Credit |
+| Critical | $1,000 - $10,000 | Hall of Fame + Public Credit + Special Badge |
 | High | $250 - $1,000 | Hall of Fame + Public Credit |
 | Medium | $50 - $250 | Public Credit |
-| Low | $25 - $50 | Public Credit |
+| Low | Recognition | Public Credit |
 
 **Bonus Multipliers:**
 - First to report: 1.5x
 - High-quality report with PoC: 1.2x
 - Suggested fix included: 1.1x
-- AI agent vulnerability: 1.3x
+- AI agent security: 1.3x
 
 **Out of Scope:**
 - Social engineering attacks
 - Physical security issues
-- Issues in third-party services
+- Issues in third-party MCP servers
 - DoS attacks without PoC
 - Already known/reported issues
-- Game balance issues (not security-related)
+- Expected game behavior (not exploits)
 
 ### 🏆 Hall of Fame
 
@@ -540,44 +649,31 @@ We recognize and thank our security researchers:
 
 *[To be populated as researchers contribute]*
 
-## Best Practices for Players & Developers
+## Best Practices for Players
 
-### 🔑 For Players
+### 🔑 Account & Data Security
 
-**Account Security:**
+**DO:**
 - ✅ Use strong, unique passwords
 - ✅ Enable 2FA if available
-- ✅ Don't share account credentials
-- ✅ Verify game client authenticity
+- ✅ Regularly backup save data
+- ✅ Keep game client updated
 - ✅ Report suspicious behavior
 
-**Data Privacy:**
-- Review privacy settings regularly
-- Understand what data is collected
-- Exercise your data rights (GDPR/CCPA)
-- Be cautious with user-generated content
+**DON'T:**
+- ❌ Share account credentials
+- ❌ Use save editors from untrusted sources
+- ❌ Click suspicious links in chat
+- ❌ Share personal information in-game
+- ❌ Run untrusted game modifications
 
-### 💻 For Developers
+### 🎮 Safe Gaming Practices
 
-**Secure Development:**
-- Follow TypeScript strict mode
-- Implement comprehensive input validation
-- Use prepared statements/parameterized queries
-- Sanitize all AI agent inputs and outputs
-- Test security scenarios thoroughly
-- Keep dependencies updated
-- Use environment variables for secrets
-- Implement proper error handling
-- Log security-relevant events
-
-**AI Agent Development:**
-- Implement prompt injection detection
-- Validate all agent responses
-- Set response length limits
-- Monitor agent behavior
-- Implement rate limiting
-- Use content filtering
-- Test with adversarial inputs
+- Be cautious with third-party tools
+- Verify official update sources
+- Report cheaters and exploiters
+- Use official communication channels
+- Protect personal information in narratives
 
 ## Incident Response
 
@@ -587,19 +683,25 @@ We recognize and thank our security researchers:
 
 1. **Detection**: Automated monitoring + manual reporting
 2. **Assessment**: Severity and impact evaluation
-3. **Containment**: Isolate affected systems
+3. **Containment**: Isolate affected systems/packages
 4. **Eradication**: Remove threat, patch vulnerability
 5. **Recovery**: Restore normal operations
 6. **Post-Incident**: Root cause analysis, improve defenses
 
-### 📢 User Notification
+### 📢 Player Notification
 
-Users will be notified of security incidents via:
+Players will be notified of security incidents via:
 - GitHub Security Advisories
-- Email (for affected users)
-- In-game notifications
-- Official platform announcements
+- In-game notifications (if applicable)
+- Email (for registered users)
+- Official social media channels
 - Status page updates
+
+**Notification Timeline:**
+- Critical incidents: Immediate notification
+- High severity: Within 24 hours
+- Medium severity: Within 72 hours
+- Low severity: With next update
 
 ## Contact & Resources
 
@@ -607,26 +709,27 @@ Users will be notified of security incidents via:
 
 - **General Security**: security@lovelogicai.com
 - **Emergency/Critical**: @RemyLoveLogicAI on GitHub
-- **Bug Reports**: [GitHub Issues](https://github.com/RemyLoveLogicAI/mcp-games-monorepo/issues) (for non-security bugs)
+- **General Bugs**: [GitHub Issues](https://github.com/RemyLoveLogicAI/mcp-games-monorepo/issues) (for non-security bugs)
 
 ### 📚 Security Resources
 
 - [OWASP Top 10](https://owasp.org/www-project-top-ten/)
-- [Node.js Security Best Practices](https://nodejs.org/en/docs/guides/security/)
-- [TypeScript Security](https://www.typescriptlang.org/docs/handbook/declaration-files/do-s-and-don-ts.html)
-- [OWASP AI Security](https://owasp.org/www-project-machine-learning-security-top-10/)
-- [Turborepo Security](https://turbo.build/repo/docs)
+- [Node.js Security Best Practices](https://github.com/goldbergyoni/nodebestpractices#6-security-best-practices)
+- [TypeScript Security](https://www.typescriptlang.org/docs/handbook/security.html)
+- [PNPM Security](https://pnpm.io/security)
+- [Turborepo Security](https://turbo.build/repo/docs/core-concepts/caching#security)
+- [MCP Specification](https://modelcontextprotocol.io/)
 
 ### 🤝 Community
 
 For non-security questions:
-- GitHub Discussions: *[Link when enabled]*
-- Discord: *[Link TBD]*
-- Twitter: *[Link TBD]*
+- GitHub Discussions: [Enable when ready]
+- Discord: [Link TBD]
+- Twitter: [Link TBD]
 
 ## Acknowledgments
 
-We deeply appreciate the security researchers and community members who help keep MCP Games Monorepo secure. Your diligence and expertise are invaluable to protecting our players and advancing the security of AI-powered gaming platforms.
+We deeply appreciate the security researchers and community members who help keep MCP Games secure. Your diligence and expertise are invaluable to protecting our players and advancing the security of AI-powered gaming platforms.
 
 **Special Thanks**: *[Recognition section to be populated]*
 
@@ -634,10 +737,18 @@ We deeply appreciate the security researchers and community members who help kee
 
 **Document Version**: 1.0.0  
 **Last Updated**: February 2, 2026  
-**Next Review**: May 2, 2026
+**Next Review**: May 2, 2026  
+**Maintainer**: @RemyLoveLogicAI
 
-*This security policy is a living document and will be updated regularly to reflect our evolving security practices and industry standards.*
+*This security policy is a living document and will be updated regularly to reflect our evolving security practices, new vulnerabilities, and industry standards.*
 
 ---
 
 🔒 **Security is a shared responsibility. Together, we build safer AI-powered gaming experiences.**
+
+## Quick Links
+
+- [Report Security Vulnerability](https://github.com/RemyLoveLogicAI/mcp-games-monorepo/security/advisories/new)
+- [View Security Advisories](https://github.com/RemyLoveLogicAI/mcp-games-monorepo/security/advisories)
+- [Security Email](mailto:security@lovelogicai.com)
+- [Repository](https://github.com/RemyLoveLogicAI/mcp-games-monorepo)
