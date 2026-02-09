@@ -1,0 +1,26 @@
+id: parsed-game
+version: "1.0"
+title: Parsed Game
+description: A game loaded from YAML
+author: Test Author
+startScene: start
+scenes:
+  start:
+    id: start
+    title: Start
+    narrative: This is a parsed game.
+    choices:
+      - id: c1
+        text: Go
+        targetScene: end
+  end:
+    id: end
+    title: End
+    narrative: The end.
+    choices: []
+endings:
+  end:
+    id: end
+    title: End
+    narrative: The end.
+    type: neutral

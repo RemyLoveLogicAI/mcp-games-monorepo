@@ -4,33 +4,25 @@
   "pipeline": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": ["dist/**"]
+      "outputs": [
+        ".next/**",
+        "!.next/cache/**",
+        "dist/**",
+        "**/*.tsbuildinfo"
+      ]
     },
     "dev": {
       "cache": false,
       "persistent": true
     },
+    "lint": {
+      "dependsOn": ["^build"]
+    },
     "test": {
-      "dependsOn": ["build"],
+      "dependsOn": ["^build"],
       "outputs": ["coverage/**"]
     },
-    "lint": {
-      "outputs": []
-    },
-    "lint:fix": {
-      "outputs": []
-    },
-    "typecheck": {
-      "dependsOn": ["^build"],
-      "outputs": []
-    },
     "clean": {
-      "cache": false
-    },
-    "db:migrate": {
-      "cache": false
-    },
-    "db:seed": {
       "cache": false
     }
   }
