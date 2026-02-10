@@ -9,7 +9,7 @@ import type {
   StoryVariables,
   GameProgress,
   VariableEffect,
-} from 'shared-types';
+} from '@omnigents/shared';
 
 /**
  * Story state representation
@@ -218,4 +218,4 @@ export class StoryEngine {
   }
 }
 
-export * from 'shared-types';
+export * from '@omnigents/shared';

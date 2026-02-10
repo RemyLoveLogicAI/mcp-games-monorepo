@@ -17,7 +17,7 @@ export class TelemetryBus {
   constructor(redisUrl?: string) {
     this.redis = new Redis(redisUrl || process.env.REDIS_URL || 'redis://localhost:6379');
     this.consumerName = `consumer-${process.pid}-${Date.now()}`;
-    
+
     this.redis.on('error', (err) => {
       console.error('[TelemetryBus] Redis error:', err.message);
     });
@@ -42,8 +42,8 @@ export class TelemetryBus {
         stream,
         '*',
         'event', JSON.stringify(event)
-      );
-      
+      ) as string;
+
       // Also notify local subscribers
       const subs = this.subscribers.get(stream) || [];
       for (const callback of subs) {
@@ -114,15 +114,15 @@ export class TelemetryBus {
       try {
         const results = await this.redis.xreadgroup(
           'GROUP', this.consumerGroup, this.consumerName,
-          'BLOCK', 5000,
           'COUNT', 10,
+          'BLOCK', 5000,
           'STREAMS', stream, '>'
-        );
+        ) as [string, [string, string[]][]][] | null;
 
         if (results) {
           for (const [streamName, messages] of results) {
             for (const [id, fields] of messages) {
-              await this.processMessage(stream, id, fields);
+              await this.processMessage(stream, id, fields as unknown as string[]);
             }
           }
         }
@@ -137,8 +137,8 @@ export class TelemetryBus {
    * Process a message from a stream
    */
   private async processMessage(
-    stream: TelemetryStream, 
-    id: string, 
+    stream: TelemetryStream,
+    id: string,
     fields: string[]
   ): Promise<void> {
     try {
@@ -168,7 +168,7 @@ export class TelemetryBus {
    */
   async getRecent<T>(stream: TelemetryStream, count = 100): Promise<TelemetryEvent<T>[]> {
     const results = await this.redis.xrevrange(stream, '+', '-', 'COUNT', count);
-    
+
     return results.map(([id, fields]) => {
       const event: TelemetryEvent<T> = JSON.parse(fields[1]);
       return event;
@@ -184,8 +184,8 @@ export class TelemetryBus {
     lastEntry: string | null;
   }> {
     const info = await this.redis.xinfo('STREAM', stream);
-    const infoMap = this.parseXInfo(info);
-    
+    const infoMap = this.parseXInfo(info as unknown as any[]);
+
     return {
       length: infoMap.get('length') as number || 0,
       firstEntry: infoMap.get('first-entry')?.[0] || null,
@@ -220,7 +220,7 @@ export class TelemetryBus {
       try {
         // Get entries older than cutoff
         const entries = await this.redis.xrange(stream, '-', cutoffTime.toString());
-        
+
         if (entries.length > 0) {
           const ids = entries.map(([id]) => id);
           await this.redis.xdel(stream, ...ids);

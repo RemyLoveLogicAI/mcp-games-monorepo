@@ -55,7 +55,7 @@ export class Telemetry {
             await this.sdk.shutdown();
             logger.info('Tracing terminated');
         } catch (error) {
-            logger.error('Error terminating tracing', error);
+            logger.error({ err: error }, 'Error terminating tracing');
         }
     }
 }

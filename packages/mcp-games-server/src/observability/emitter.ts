@@ -1,5 +1,5 @@
 import { telemetryBus, TelemetryEvent } from '@omnigents/shared';
-import { logger } from './logger.js';
+import { logger } from '@omnigents/shared';
 import { trace, context } from '@opentelemetry/api';
 
 export class Tier1Emitter {

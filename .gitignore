@@ -51,3 +51,4 @@ pnpm-debug.log*
 
 # TypeScript
 *.tsbuildinfo
+.trae/agent-project-config.json

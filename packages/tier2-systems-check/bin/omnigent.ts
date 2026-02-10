@@ -4,6 +4,17 @@ import chalk from 'chalk';
 import Table from 'cli-table3';
 import { StatusAggregator } from '../src/aggregator.js';
 import ora from 'ora';
+import { Telemetry, createLogger } from '@omnigents/shared';
+
+const log = createLogger('omnigent-cli');
+
+const tracing = new Telemetry({
+    serviceName: 'tier2-systems-check',
+    serviceVersion: '0.1.0',
+});
+
+// Initialize tracing early
+tracing.start().catch((err) => log.error({ err }, 'Failed to start tracing'));
 
 const program = new Command();
 
@@ -25,7 +36,7 @@ program
             spinner.succeed('Connected');
         } catch (error) {
             spinner.fail('Failed to connect to Redis/Telemetry Bus');
-            console.error(error);
+            log.error({ err: error }, 'Failed to connect to Redis/Telemetry Bus');
             process.exit(1);
         }
 

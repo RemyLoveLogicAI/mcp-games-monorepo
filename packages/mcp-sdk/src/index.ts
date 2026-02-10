@@ -8,7 +8,7 @@ import type {
   SemanticQuery,
   QueryResult,
   Result,
-} from 'shared-types';
+} from '@omnigents/shared';
 
 /**
  * MCP Client for managing connections and executing queries
@@ -181,4 +181,4 @@ export interface MCPClientConfig {
   retryAttempts?: number;
 }
 
-export * from 'shared-types';
+export * from '@omnigents/shared';

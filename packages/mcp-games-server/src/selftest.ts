@@ -1,8 +1,13 @@
-import { GameDefinition } from '@omnigents/shared';
+import { GameDefinition, Telemetry, logger } from '@omnigents/shared';
 import { GameEngine } from './core/engine.js';
 import { InMemoryStateStore } from './core/state.js';
-import { initTracing } from './observability/tracing.js';
 import { telemetry } from './observability/index.js';
+
+const tracing = new Telemetry({
+    serviceName: 'mcp-games-server-selftest',
+    serviceVersion: '0.1.0',
+});
+
 
 const sampleGame: GameDefinition = {
     id: 'test-game',
@@ -32,8 +37,8 @@ const sampleGame: GameDefinition = {
 };
 
 async function runTest() {
-    await initTracing();
-    console.log('Tracing initialized');
+    await tracing.start();
+    logger.info('Tracing initialized');
 
     const stateStore = new InMemoryStateStore();
     const engine = new GameEngine(stateStore);
