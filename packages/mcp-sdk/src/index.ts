@@ -130,6 +130,48 @@ export {
 } from './utils/RetryHandler';
 
 // =============================================================================
+// Query Orchestration & Pipeline
+// =============================================================================
+
+export {
+  QueryOrchestrator,
+  QueryPipelineBuilder,
+  createQueryOrchestrator,
+  createQueryPipeline,
+  type QueryStage,
+  type PipelineStage,
+  type TransformStage,
+  type FilterStage,
+  type CorrelationStage,
+  type AggregationStage,
+  type BranchStage,
+  type ParallelStage,
+  type QueryPipeline,
+  type PipelineExecutionContext,
+  type PipelineExecutionResult,
+  type StreamingCallback,
+  type QueryOrchestratorConfig,
+} from './orchestration/QueryOrchestrator';
+
+// =============================================================================
+// Real-time Subscriptions
+// =============================================================================
+
+export {
+  MCPSubscriptionManager,
+  createSubscriptionManager,
+  type SubscriptionConfig,
+  type Subscription,
+  type SubscriptionEvent,
+  type DeltaUpdate,
+  type SubscriptionCallback,
+  type SubscriptionState,
+  type WebSocketConfig,
+  type PollingConfig,
+  type SubscriptionManagerConfig,
+} from './realtime/MCPSubscriptionManager';
+
+// =============================================================================
 // Omni Agent (Multi-channel, Always-on)
 // =============================================================================
 
@@ -152,6 +194,66 @@ export {
   type OmniAgentConfig,
   type PersistenceAdapter,
 } from './omni/OmniAgentClient';
+
+// =============================================================================
+// Conversation Memory & NLU
+// =============================================================================
+
+export {
+  ConversationMemory,
+  EntityExtractor,
+  IntentDetector,
+  TopicModeler,
+  createConversationMemory,
+  type MemoryEntry,
+  type ExtractedEntity,
+  type DetectedIntent,
+  type Topic,
+  type ConversationSummary,
+  type MemoryConfig,
+  type EntityType,
+  type IntentType,
+} from './omni/ConversationMemory';
+
+// =============================================================================
+// Dialogue Management
+// =============================================================================
+
+export {
+  DialogueManager,
+  DialogueFlow,
+  SlotFiller,
+  InputProcessor,
+  createDialogueManager,
+  createFlow,
+  type DialogueState,
+  type DialogueNode,
+  type DialogueTransition,
+  type Slot,
+  type SlotValue,
+  type FilledSlots,
+  type DialogueContext,
+  type DialogueResponse,
+  type DialogueManagerConfig,
+  type FlowDefinition,
+  type NodeType,
+} from './omni/DialogueManager';
+
+// =============================================================================
+// Unified MCP-Omni Integration
+// =============================================================================
+
+export {
+  OmniMCPIntegration,
+  createOmniMCPIntegration,
+  type IntegrationConfig,
+  type ContextAwareQuery,
+  type PersonalizationProfile,
+  type ProactiveNotification,
+  type NotificationType,
+  type IntegrationEvent,
+  type IntegrationEventType,
+} from './omni/OmniMCPIntegration';
 
 // =============================================================================
 // Re-export all types from shared-types
