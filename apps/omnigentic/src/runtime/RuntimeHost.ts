@@ -11,6 +11,8 @@ export interface RuntimeHostOptions {
     maxParallelTicks?: number;
     maxRuntimeEvents?: number;
     maxAgentErrorsBeforePause?: number;
+    telemetryEnabled?: boolean;
+    telemetryEmitter?: RuntimeTelemetryEmitter;
 }
 
 export interface RuntimeHostEvent {
@@ -18,6 +20,10 @@ export interface RuntimeHostEvent {
     level: RuntimeEventLevel;
     timestamp: number;
     details: Record<string, unknown>;
+}
+
+export interface RuntimeTelemetryEmitter {
+    emit(event: RuntimeHostEvent): Promise<void>;
 }
 
 export interface ManagedAgentSnapshot {
@@ -117,6 +123,36 @@ export interface SpawnSwarmResult {
     failures: SwarmSpawnFailure[];
 }
 
+export interface SwarmSummary {
+    swarmId: string;
+    members: number;
+    active: number;
+    paused: number;
+    errored: number;
+}
+
+export interface SwarmStatus {
+    swarmId: string;
+    totals: {
+        members: number;
+        active: number;
+        paused: number;
+        errored: number;
+    };
+    environments: string[];
+    parentAgentIds: string[];
+    roles: string[];
+    members: ManagedAgentSnapshot[];
+}
+
+export interface DespawnSwarmResult {
+    swarmId: string;
+    targeted: number;
+    despawned: number;
+    failed: number;
+    failures: Array<{ agentId: string; reason: string }>;
+}
+
 export type TickOutcomeStatus = 'acted' | 'idle' | 'failed' | 'skipped';
 export type TickExecutionStatus = 'executed' | 'skipped';
 
@@ -174,13 +210,45 @@ export interface BroadcastSignalResult {
     failures: Array<{ agentId: string; reason: string }>;
 }
 
-const DEFAULT_OPTIONS: Required<RuntimeHostOptions> = {
+interface NormalizedRuntimeHostOptions {
+    autoTick: boolean;
+    tickIntervalMs: number;
+    maxParallelTicks: number;
+    maxRuntimeEvents: number;
+    maxAgentErrorsBeforePause: number;
+    telemetryEnabled: boolean;
+    telemetryEmitter: RuntimeTelemetryEmitter | null;
+}
+
+const DEFAULT_OPTIONS: Omit<NormalizedRuntimeHostOptions, 'telemetryEmitter'> = {
     autoTick: true,
     tickIntervalMs: 1000,
     maxParallelTicks: 24,
     maxRuntimeEvents: 500,
     maxAgentErrorsBeforePause: 3,
+    telemetryEnabled: true,
 };
+
+function createSharedBusTelemetryEmitter(): RuntimeTelemetryEmitter {
+    let sharedModulePromise: Promise<typeof import('@omnigents/shared')> | null = null;
+
+    return {
+        async emit(event: RuntimeHostEvent): Promise<void> {
+            if (!sharedModulePromise) {
+                sharedModulePromise = import('@omnigents/shared');
+            }
+
+            const shared = await sharedModulePromise;
+            await shared.telemetryBus.emit('tier0:runtime', {
+                source: 'omnigentic-runtime',
+                eventType: event.type,
+                level: event.level,
+                details: event.details,
+                timestamp: event.timestamp,
+            });
+        },
+    };
+}
 
 export class RuntimeHost {
     private readonly agents: Map<string, ManagedAgent> = new Map();
@@ -188,7 +256,7 @@ export class RuntimeHost {
     private readonly agentTemplates: Map<string, AgentTemplateFactory> = new Map();
     private readonly runtimeEvents: RuntimeHostEvent[] = [];
     private readonly memory: MemoryIO;
-    private readonly options: Required<RuntimeHostOptions>;
+    private readonly options: NormalizedRuntimeHostOptions;
 
     private heartbeatTimer: NodeJS.Timeout | null = null;
     private running = false;
@@ -197,7 +265,20 @@ export class RuntimeHost {
 
     constructor(memory: MemoryIO, options: RuntimeHostOptions = {}) {
         this.memory = memory;
-        this.options = { ...DEFAULT_OPTIONS, ...options };
+        const telemetryEnabled = options.telemetryEnabled ?? DEFAULT_OPTIONS.telemetryEnabled;
+
+        this.options = {
+            autoTick: options.autoTick ?? DEFAULT_OPTIONS.autoTick,
+            tickIntervalMs: options.tickIntervalMs ?? DEFAULT_OPTIONS.tickIntervalMs,
+            maxParallelTicks: options.maxParallelTicks ?? DEFAULT_OPTIONS.maxParallelTicks,
+            maxRuntimeEvents: options.maxRuntimeEvents ?? DEFAULT_OPTIONS.maxRuntimeEvents,
+            maxAgentErrorsBeforePause:
+                options.maxAgentErrorsBeforePause ?? DEFAULT_OPTIONS.maxAgentErrorsBeforePause,
+            telemetryEnabled,
+            telemetryEmitter: telemetryEnabled
+                ? (options.telemetryEmitter ?? createSharedBusTelemetryEmitter())
+                : null,
+        };
     }
 
     /**
@@ -697,13 +778,109 @@ export class RuntimeHost {
         return this.getAgents().filter((agent) => agent.swarmId === swarmId);
     }
 
-    getRuntimeSnapshot(): RuntimeSnapshot {
-        const agents = this.getAgents();
-        const swarms = new Set(
-            agents
+    listSwarmIds(): string[] {
+        const swarmIds = new Set(
+            this.getAgents()
                 .map((agent) => agent.swarmId)
                 .filter((swarmId): swarmId is string => swarmId !== null)
         );
+        return Array.from(swarmIds).sort((a, b) => a.localeCompare(b));
+    }
+
+    listSwarms(): SwarmSummary[] {
+        return this.listSwarmIds().map((swarmId) => {
+            const members = this.getSwarmMembers(swarmId);
+            return {
+                swarmId,
+                members: members.length,
+                active: members.filter((agent) => agent.state === 'active').length,
+                paused: members.filter((agent) => agent.state === 'paused').length,
+                errored: members.filter((agent) => agent.state === 'errored').length,
+            };
+        });
+    }
+
+    getSwarmStatus(swarmId: string): SwarmStatus | null {
+        const members = this.getSwarmMembers(swarmId);
+        if (members.length === 0) {
+            return null;
+        }
+
+        const environments = new Set<string>();
+        const parentAgentIds = new Set<string>();
+        const roles = new Set<string>();
+
+        for (const member of members) {
+            environments.add(member.environmentId);
+            if (member.parentAgentId) {
+                parentAgentIds.add(member.parentAgentId);
+            }
+            if (member.role) {
+                roles.add(member.role);
+            }
+        }
+
+        return {
+            swarmId,
+            totals: {
+                members: members.length,
+                active: members.filter((agent) => agent.state === 'active').length,
+                paused: members.filter((agent) => agent.state === 'paused').length,
+                errored: members.filter((agent) => agent.state === 'errored').length,
+            },
+            environments: Array.from(environments).sort((a, b) => a.localeCompare(b)),
+            parentAgentIds: Array.from(parentAgentIds).sort((a, b) => a.localeCompare(b)),
+            roles: Array.from(roles).sort((a, b) => a.localeCompare(b)),
+            members,
+        };
+    }
+
+    async despawnSwarm(swarmId: string, reason = 'swarm_despawn_requested'): Promise<DespawnSwarmResult> {
+        const members = this.getSwarmMembers(swarmId);
+        const failures: Array<{ agentId: string; reason: string }> = [];
+        let despawned = 0;
+
+        for (const member of members) {
+            try {
+                const removed = await this.despawnAgent(member.agentId, reason);
+                if (removed) {
+                    despawned += 1;
+                } else {
+                    failures.push({
+                        agentId: member.agentId,
+                        reason: 'agent_not_found',
+                    });
+                }
+            } catch (error: unknown) {
+                failures.push({
+                    agentId: member.agentId,
+                    reason: this.errorToMessage(error),
+                });
+            }
+        }
+
+        const result: DespawnSwarmResult = {
+            swarmId,
+            targeted: members.length,
+            despawned,
+            failed: failures.length,
+            failures,
+        };
+
+        this.recordEvent(result.failed > 0 ? 'swarm_despawn_partial' : 'swarm_despawn_completed', result.failed > 0 ? 'warn' : 'info', {
+            swarmId,
+            targeted: result.targeted,
+            despawned: result.despawned,
+            failed: result.failed,
+            reason,
+        });
+
+        return result;
+    }
+
+    getRuntimeSnapshot(): RuntimeSnapshot {
+        const agents = this.getAgents();
+        const swarms = this.listSwarmIds();
 
         return {
             running: this.running,
@@ -717,7 +894,7 @@ export class RuntimeHost {
                 active: agents.filter((agent) => agent.state === 'active').length,
                 paused: agents.filter((agent) => agent.state === 'paused').length,
                 errored: agents.filter((agent) => agent.state === 'errored').length,
-                swarms: swarms.size,
+                swarms: swarms.length,
             },
             agents,
             recentEvents: [...this.runtimeEvents],
@@ -945,15 +1122,24 @@ export class RuntimeHost {
     }
 
     private recordEvent(type: string, level: RuntimeEventLevel, details: Record<string, unknown>): void {
-        this.runtimeEvents.push({
+        const runtimeEvent: RuntimeHostEvent = {
             type,
             level,
             timestamp: Date.now(),
             details,
-        });
+        };
+        this.runtimeEvents.push(runtimeEvent);
 
         while (this.runtimeEvents.length > this.options.maxRuntimeEvents) {
             this.runtimeEvents.shift();
+        }
+
+        if (this.options.telemetryEnabled && this.options.telemetryEmitter) {
+            void this.options.telemetryEmitter.emit(runtimeEvent).catch((error: unknown) => {
+                console.error(
+                    `[RuntimeHost] Failed emitting telemetry '${runtimeEvent.type}': ${this.errorToMessage(error)}`
+                );
+            });
         }
     }
 

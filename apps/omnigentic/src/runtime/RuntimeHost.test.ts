@@ -4,7 +4,7 @@ import { MCPBridge } from '../mcp/MCPBridge.js';
 import { Action, AgentLifecycle, Perception, RuntimeContext, RuntimeSignal } from './AgentContract.js';
 import { ActionResult, EnvironmentCapabilities, EnvironmentHost } from './EnvironmentContract.js';
 import { MemoryFragment, MemoryIO, MemoryQuery } from './MemoryContract.js';
-import { RuntimeHost } from './RuntimeHost.js';
+import { RuntimeHost, RuntimeHostEvent } from './RuntimeHost.js';
 
 class InMemoryMemory implements MemoryIO {
     private seq = 0;
@@ -126,7 +126,11 @@ class WorkerAgent implements AgentLifecycle {
 
 test('RuntimeHost can spawn and orchestrate a mass swarm', async () => {
     const memory = new InMemoryMemory();
-    const runtime = new RuntimeHost(memory, { autoTick: false, maxParallelTicks: 12 });
+    const runtime = new RuntimeHost(memory, {
+        autoTick: false,
+        maxParallelTicks: 12,
+        telemetryEnabled: false,
+    });
     const env = new TestEnvironment('sim');
 
     runtime.registerEnvironment(env);
@@ -160,7 +164,7 @@ test('RuntimeHost can spawn and orchestrate a mass swarm', async () => {
 
 test('RuntimeHost pause/resume/terminate signals control agent execution', async () => {
     const memory = new InMemoryMemory();
-    const runtime = new RuntimeHost(memory, { autoTick: false });
+    const runtime = new RuntimeHost(memory, { autoTick: false, telemetryEnabled: false });
     const env = new TestEnvironment('control');
 
     runtime.registerEnvironment(env);
@@ -187,9 +191,40 @@ test('RuntimeHost pause/resume/terminate signals control agent execution', async
     await runtime.stop();
 });
 
+test('RuntimeHost emits lifecycle events through custom telemetry emitter', async () => {
+    const memory = new InMemoryMemory();
+    const emitted: RuntimeHostEvent[] = [];
+    const runtime = new RuntimeHost(memory, {
+        autoTick: false,
+        telemetryEnabled: true,
+        telemetryEmitter: {
+            emit: async (event: RuntimeHostEvent): Promise<void> => {
+                emitted.push(event);
+            },
+        },
+    });
+    const env = new TestEnvironment('telemetry');
+
+    runtime.registerEnvironment(env);
+    runtime.registerAgentTemplate('worker', () => new WorkerAgent('telemetry-work'));
+    await runtime.start();
+    await runtime.spawnAgentFromTemplate({
+        templateType: 'worker',
+        agentId: 'telemetry-1',
+        environmentId: 'telemetry',
+    });
+    await runtime.tick(['telemetry-1']);
+    await runtime.stop();
+
+    assert.ok(emitted.some((event) => event.type === 'runtime_started'));
+    assert.ok(emitted.some((event) => event.type === 'agent_spawned'));
+    assert.ok(emitted.some((event) => event.type === 'tick_completed'));
+    assert.ok(emitted.some((event) => event.type === 'runtime_stopped'));
+});
+
 test('MCPBridge orchestrates swarm operations through tool calls', async () => {
     const memory = new InMemoryMemory();
-    const runtime = new RuntimeHost(memory, { autoTick: false });
+    const runtime = new RuntimeHost(memory, { autoTick: false, telemetryEnabled: false });
     const env = new TestEnvironment('ops');
     runtime.registerEnvironment(env);
     runtime.registerAgentTemplate('worker', () => new WorkerAgent('bridge-work'));
@@ -207,6 +242,43 @@ test('MCPBridge orchestrates swarm operations through tool calls', async () => {
     assert.equal(spawnPayload.result.spawned, 6);
     assert.equal(spawnPayload.result.failed, 0);
 
+    const listSwarmsResponse = await bridge.handleToolCall('list_swarms', {});
+    const listSwarmsPayload = JSON.parse(listSwarmsResponse.content[0].text) as {
+        swarms: Array<{ swarmId: string; members: number }>;
+    };
+    assert.equal(listSwarmsPayload.swarms.length, 1);
+    assert.equal(listSwarmsPayload.swarms[0].swarmId, 'bridge-swarm');
+    assert.equal(listSwarmsPayload.swarms[0].members, 6);
+
+    const swarmStatusResponse = await bridge.handleToolCall('get_swarm_status', { swarmId: 'bridge-swarm' });
+    const swarmStatusPayload = JSON.parse(swarmStatusResponse.content[0].text) as {
+        swarm: { totals: { members: number; active: number } };
+    };
+    assert.equal(swarmStatusPayload.swarm.totals.members, 6);
+    assert.equal(swarmStatusPayload.swarm.totals.active, 6);
+
+    const pauseResponse = await bridge.handleToolCall('broadcast_signal', {
+        signal: 'PAUSE',
+        swarmId: 'bridge-swarm',
+    });
+    const pausePayload = JSON.parse(pauseResponse.content[0].text) as {
+        result: { targeted: number; succeeded: number; failed: number };
+    };
+    assert.equal(pausePayload.result.targeted, 6);
+    assert.equal(pausePayload.result.succeeded, 6);
+    assert.equal(pausePayload.result.failed, 0);
+
+    const pausedStatusResponse = await bridge.handleToolCall('get_swarm_status', { swarmId: 'bridge-swarm' });
+    const pausedStatusPayload = JSON.parse(pausedStatusResponse.content[0].text) as {
+        swarm: { totals: { paused: number } };
+    };
+    assert.equal(pausedStatusPayload.swarm.totals.paused, 6);
+
+    await bridge.handleToolCall('broadcast_signal', {
+        signal: 'RESUME',
+        swarmId: 'bridge-swarm',
+    });
+
     const orchestrateResponse = await bridge.handleToolCall('orchestrate_swarm', {
         swarmId: 'bridge-swarm',
         iterations: 2,
@@ -223,6 +295,28 @@ test('MCPBridge orchestrates swarm operations through tool calls', async () => {
     };
     assert.equal(inspectPayload.snapshot.totals.agents, 6);
     assert.equal(inspectPayload.snapshot.totals.swarms, 1);
+
+    const despawnResponse = await bridge.handleToolCall('despawn_swarm', {
+        swarmId: 'bridge-swarm',
+        reason: 'test_cleanup',
+    });
+    const despawnPayload = JSON.parse(despawnResponse.content[0].text) as {
+        result: { targeted: number; despawned: number; failed: number };
+    };
+    assert.equal(despawnPayload.result.targeted, 6);
+    assert.equal(despawnPayload.result.despawned, 6);
+    assert.equal(despawnPayload.result.failed, 0);
+
+    const postDespawnInspectResponse = await bridge.handleToolCall('inspect_runtime', {});
+    const postDespawnInspectPayload = JSON.parse(postDespawnInspectResponse.content[0].text) as {
+        snapshot: { totals: { agents: number } };
+    };
+    assert.equal(postDespawnInspectPayload.snapshot.totals.agents, 0);
+
+    await assert.rejects(
+        async () => bridge.handleToolCall('get_swarm_status', { swarmId: 'bridge-swarm' }),
+        /not found/
+    );
 
     await assert.rejects(
         async () => bridge.handleToolCall('spawn_agent', { agentId: 'x', environmentId: 'ops' }),

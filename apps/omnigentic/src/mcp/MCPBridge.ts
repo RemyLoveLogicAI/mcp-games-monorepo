@@ -88,6 +88,47 @@ export class MCPBridge {
                 }
             },
             {
+                name: 'despawn_swarm',
+                description: 'Remove all agents that belong to a swarm',
+                inputSchema: {
+                    type: 'object',
+                    properties: {
+                        swarmId: { type: 'string' },
+                        reason: { type: 'string' }
+                    },
+                    required: ['swarmId']
+                }
+            },
+            {
+                name: 'broadcast_signal',
+                description: 'Broadcast PAUSE/RESUME/TERMINATE/SNAPSHOT to a fleet',
+                inputSchema: {
+                    type: 'object',
+                    properties: {
+                        signal: { type: 'string', enum: ['PAUSE', 'RESUME', 'TERMINATE', 'SNAPSHOT'] },
+                        swarmId: { type: 'string' },
+                        environmentId: { type: 'string' }
+                    },
+                    required: ['signal']
+                }
+            },
+            {
+                name: 'list_swarms',
+                description: 'List all swarms and member counts',
+                inputSchema: { type: 'object', properties: {} }
+            },
+            {
+                name: 'get_swarm_status',
+                description: 'Get a detailed runtime snapshot for one swarm',
+                inputSchema: {
+                    type: 'object',
+                    properties: {
+                        swarmId: { type: 'string' }
+                    },
+                    required: ['swarmId']
+                }
+            },
+            {
                 name: 'list_agent_templates',
                 description: 'List registered runtime agent templates',
                 inputSchema: { type: 'object', properties: {} }
@@ -198,6 +239,56 @@ export class MCPBridge {
                     ok: true,
                     action: 'orchestrate_swarm',
                     result,
+                }));
+            }
+            case 'despawn_swarm': {
+                const params = this.expectObject(name, args);
+                const swarmId = this.requireString(params, 'swarmId');
+                const reason = this.optionalString(params, 'reason');
+
+                const result = await this.runtime.despawnSwarm(
+                    swarmId,
+                    reason ?? 'mcp_despawn_swarm'
+                );
+
+                return this.textResponse(this.asJson({
+                    ok: true,
+                    action: 'despawn_swarm',
+                    result,
+                }));
+            }
+            case 'broadcast_signal': {
+                const params = this.expectObject(name, args);
+                const signal = this.requireSignal(params, 'signal');
+                const swarmId = this.optionalString(params, 'swarmId');
+                const environmentId = this.optionalString(params, 'environmentId');
+
+                const result = await this.runtime.broadcastSignal(signal, {
+                    swarmId: swarmId ?? undefined,
+                    environmentId: environmentId ?? undefined,
+                });
+
+                return this.textResponse(this.asJson({
+                    ok: true,
+                    action: 'broadcast_signal',
+                    result,
+                }));
+            }
+            case 'list_swarms':
+                return this.textResponse(this.asJson({
+                    ok: true,
+                    swarms: this.runtime.listSwarms(),
+                }));
+            case 'get_swarm_status': {
+                const params = this.expectObject(name, args);
+                const swarmId = this.requireString(params, 'swarmId');
+                const status = this.runtime.getSwarmStatus(swarmId);
+                if (!status) {
+                    throw new Error(`Swarm '${swarmId}' not found`);
+                }
+                return this.textResponse(this.asJson({
+                    ok: true,
+                    swarm: status,
                 }));
             }
             case 'list_agent_templates':

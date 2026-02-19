@@ -80,6 +80,14 @@ export interface Tier0HealthEvent {
   timestamp: number;
 }
 
+export interface Tier0RuntimeEvent {
+  source: 'omnigentic-runtime';
+  eventType: string;
+  level: 'debug' | 'info' | 'warn' | 'error';
+  details: Record<string, unknown>;
+  timestamp: number;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // TIER 1: AI Watchdog Types
 // ─────────────────────────────────────────────────────────────────────────────
@@ -360,6 +368,7 @@ export interface NarrationResponse {
 
 export type TelemetryStream =
   | 'tier0:telemetry'
+  | 'tier0:runtime'
   | 'tier0:health'
   | 'tier0:state'
   | 'tier1:escalation'

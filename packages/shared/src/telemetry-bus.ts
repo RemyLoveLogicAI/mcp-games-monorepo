@@ -206,6 +206,7 @@ export class TelemetryBus {
   async cleanup(maxAge: number = 24 * 60 * 60 * 1000): Promise<void> {
     const streams: TelemetryStream[] = [
       'tier0:telemetry',
+      'tier0:runtime',
       'tier0:health',
       'tier0:state',
       'tier1:escalation',
