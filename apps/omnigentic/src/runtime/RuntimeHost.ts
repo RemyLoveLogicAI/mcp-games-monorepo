@@ -13,7 +13,7 @@ export interface RuntimeHostOptions {
     maxAgentErrorsBeforePause?: number;
 }
 
-export interface RuntimeEvent {
+export interface RuntimeHostEvent {
     type: string;
     level: RuntimeEventLevel;
     timestamp: number;
@@ -56,7 +56,7 @@ export interface RuntimeSnapshot {
         swarms: number;
     };
     agents: ManagedAgentSnapshot[];
-    recentEvents: RuntimeEvent[];
+    recentEvents: RuntimeHostEvent[];
 }
 
 export interface SpawnAgentOptions {
@@ -186,7 +186,7 @@ export class RuntimeHost {
     private readonly agents: Map<string, ManagedAgent> = new Map();
     private readonly environments: Map<string, EnvironmentHost> = new Map();
     private readonly agentTemplates: Map<string, AgentTemplateFactory> = new Map();
-    private readonly runtimeEvents: RuntimeEvent[] = [];
+    private readonly runtimeEvents: RuntimeHostEvent[] = [];
     private readonly memory: MemoryIO;
     private readonly options: Required<RuntimeHostOptions>;
 
