@@ -230,12 +230,34 @@ const DEFAULT_OPTIONS: Omit<NormalizedRuntimeHostOptions, 'telemetryEmitter'> = 
 };
 
 function createSharedBusTelemetryEmitter(): RuntimeTelemetryEmitter {
-    let sharedModulePromise: Promise<typeof import('@omnigents/shared')> | null = null;
+    type SharedTelemetryModule = {
+        telemetryBus: {
+            emit: (stream: string, data: unknown) => Promise<string>;
+        };
+    };
+
+    let sharedModulePromise: Promise<SharedTelemetryModule> | null = null;
 
     return {
         async emit(event: RuntimeHostEvent): Promise<void> {
             if (!sharedModulePromise) {
-                sharedModulePromise = import('@omnigents/shared');
+                const dynamicImport = new Function(
+                    'specifier',
+                    'return import(specifier);'
+                ) as (specifier: string) => Promise<unknown>;
+
+                sharedModulePromise = dynamicImport('@omnigents/shared').then((mod) => {
+                    if (!mod || typeof mod !== 'object') {
+                        throw new Error('Invalid @omnigents/shared module');
+                    }
+
+                    const maybe = mod as Partial<SharedTelemetryModule>;
+                    if (!maybe.telemetryBus || typeof maybe.telemetryBus.emit !== 'function') {
+                        throw new Error('Missing telemetryBus.emit in @omnigents/shared');
+                    }
+
+                    return maybe as SharedTelemetryModule;
+                });
             }
 
             const shared = await sharedModulePromise;
