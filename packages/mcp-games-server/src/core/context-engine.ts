@@ -1,53 +1,267 @@
-import { SceneDefinition as Scene, ContextInjection } from '@omnigents/shared';
 import { telemetry } from '../observability/index.js';
+import { SelfAwareAgent } from '@omnigents/tier0-runtime';
 
-export class ContextEngine {
-    async resolveContext(scene: Scene, sessionId: string): Promise<Record<string, string>> {
-        const contextData: Record<string, string> = {};
+export interface ContextSource {
+    name: string;
+    fetch(query: string, traceId: string): Promise<any>;
+}
 
-        if (!scene.contextQuery || scene.contextQuery.length === 0) {
-            return contextData;
-        }
+export interface ContextData {
+    source: string;
+    query: string;
+    result: any;
+    timestamp: string;
+    durationMs: number;
+}
 
-        telemetry.emit('context:resolve_start', { sessionId, sceneId: scene.id, count: scene.contextQuery.length });
+export interface InjectionContext {
+    [key: string]: any;
+}
 
-        for (const query of scene.contextQuery) {
-            try {
-                // In a real implementation, this would call an MCP client or external service
-                // For Sprint 1, we mock common context types
-                const value = await this.fetchContext(query);
-                contextData[query.targetVariable] = value;
-            } catch (error) {
-                telemetry.emit('context:error', {
-                    sessionId,
-                    query: query.query,
-                    error: error instanceof Error ? error.message : String(error)
-                }, 'WARN');
-                contextData[query.targetVariable] = query.fallbackValue;
-            }
-        }
+export class CalendarContextSource implements ContextSource {
+    name = 'calendar';
+    private agent: SelfAwareAgent | null;
 
-        telemetry.emit('context:resolved', { sessionId, keys: Object.keys(contextData) });
-        return contextData;
+    constructor(agent?: SelfAwareAgent) {
+        this.agent = agent || null;
     }
 
-    private async fetchContext(query: ContextInjection): Promise<string> {
-        // Mock implementation
-        switch (query.contextType) {
-            case 'calendar':
-                return "No upcoming events today.";
-            case 'weather':
-                return "Sunny, 25°C.";
-            case 'location':
-                return "San Francisco, CA.";
-            case 'notes':
-                return "Note: Remember to buy milk.";
-            case 'contacts':
-                return "Alice, Bob, Charlie.";
-            default:
-                return query.fallbackValue;
+    async fetch(query: string, traceId: string): Promise<any> {
+        const start = Date.now();
+        try {
+            const result = {
+                source: 'calendar',
+                query,
+                events: [],
+                parsed: this.parseCalendarQuery(query),
+                timestamp: new Date().toISOString()
+            };
+
+            const duration = Date.now() - start;
+            if (this.agent) {
+                await this.agent.track({
+                    operation: 'calendar:fetch',
+                    status: 'success',
+                    durationMs: duration,
+                    traceId
+                });
+            }
+
+            telemetry.emit('context:calendar:fetched', { query, traceId, duration });
+            return result;
+        } catch (error) {
+            const duration = Date.now() - start;
+            if (this.agent) {
+                await this.agent.track({
+                    operation: 'calendar:fetch',
+                    status: 'failure',
+                    errorMessage: error instanceof Error ? error.message : 'Unknown error',
+                    durationMs: duration,
+                    traceId
+                });
+            }
+            throw error;
+        }
+    }
+
+    private parseCalendarQuery(query: string): Record<string, string> {
+        if (query.includes('today')) return { timeframe: 'today', type: 'events' };
+        if (query.includes('week')) return { timeframe: 'week', type: 'events' };
+        if (query.includes('month')) return { timeframe: 'month', type: 'events' };
+        return { timeframe: 'today', type: 'events' };
+    }
+}
+
+export class NotesContextSource implements ContextSource {
+    name = 'notes';
+    private agent: SelfAwareAgent | null;
+
+    constructor(agent?: SelfAwareAgent) {
+        this.agent = agent || null;
+    }
+
+    async fetch(query: string, traceId: string): Promise<any> {
+        const start = Date.now();
+        try {
+            const result = {
+                source: 'notes',
+                query,
+                notes: [],
+                timestamp: new Date().toISOString()
+            };
+
+            const duration = Date.now() - start;
+            if (this.agent) {
+                await this.agent.track({
+                    operation: 'notes:fetch',
+                    status: 'success',
+                    durationMs: duration,
+                    traceId
+                });
+            }
+
+            telemetry.emit('context:notes:fetched', { query, traceId, duration });
+            return result;
+        } catch (error) {
+            const duration = Date.now() - start;
+            if (this.agent) {
+                await this.agent.track({
+                    operation: 'notes:fetch',
+                    status: 'failure',
+                    errorMessage: error instanceof Error ? error.message : 'Unknown error',
+                    durationMs: duration,
+                    traceId
+                });
+            }
+            throw error;
         }
     }
 }
 
-export const contextEngine = new ContextEngine();
+export class ContextEngine {
+    private sources = new Map<string, ContextSource>();
+    private agent: SelfAwareAgent | null;
+    private contextCache = new Map<string, ContextData>();
+    private cacheMaxAge = 5 * 60 * 1000;
+
+    constructor(agent?: SelfAwareAgent) {
+        this.agent = agent || null;
+        this.registerDefaultSources();
+    }
+
+    private registerDefaultSources(): void {
+        this.registerSource(new CalendarContextSource(this.agent));
+        this.registerSource(new NotesContextSource(this.agent));
+    }
+
+    registerSource(source: ContextSource): void {
+        this.sources.set(source.name, source);
+        telemetry.emit('context:source:registered', { source: source.name });
+    }
+
+    async fetchContext(sourceName: string, query: string, traceId: string, skipCache = false): Promise<ContextData | null> {
+        const start = Date.now();
+        const cacheKey = `${sourceName}:${query}`;
+
+        if (!skipCache) {
+            const cached = this.contextCache.get(cacheKey);
+            if (cached && Date.now() - new Date(cached.timestamp).getTime() < this.cacheMaxAge) {
+                telemetry.emit('context:cache:hit', { source: sourceName, query });
+                return cached;
+            }
+        }
+
+        const source = this.sources.get(sourceName);
+        if (!source) {
+            telemetry.emit('context:source:notfound', { source: sourceName, traceId });
+            return null;
+        }
+
+        try {
+            const result = await source.fetch(query, traceId);
+            const duration = Date.now() - start;
+
+            const contextData: ContextData = {
+                source: sourceName,
+                query,
+                result,
+                timestamp: new Date().toISOString(),
+                durationMs: duration
+            };
+
+            this.contextCache.set(cacheKey, contextData);
+
+            if (this.agent) {
+                await this.agent.track({
+                    operation: `context:fetch:${sourceName}`,
+                    status: 'success',
+                    durationMs: duration,
+                    traceId
+                });
+            }
+
+            return contextData;
+        } catch (error) {
+            const duration = Date.now() - start;
+            if (this.agent) {
+                await this.agent.track({
+                    operation: `context:fetch:${sourceName}`,
+                    status: 'failure',
+                    errorMessage: error instanceof Error ? error.message : 'Unknown error',
+                    durationMs: duration,
+                    traceId
+                });
+            }
+            return null;
+        }
+    }
+
+    async injectContext(contextRequests: Array<{ source: string; query: string }>, traceId: string): Promise<InjectionContext> {
+        const start = Date.now();
+        const injectionContext: InjectionContext = {
+            timestamp: new Date().toISOString(),
+            sources: {}
+        };
+
+        const promises = contextRequests.map(req => this.fetchContext(req.source, req.query, traceId));
+        const results = await Promise.all(promises);
+
+        for (const result of results) {
+            if (result) {
+                injectionContext.sources[result.source] = result.result;
+            }
+        }
+
+        const duration = Date.now() - start;
+        if (this.agent) {
+            await this.agent.track({
+                operation: 'context:inject',
+                status: 'success',
+                durationMs: duration,
+                traceId
+            });
+        }
+
+        telemetry.emit('context:injected', {
+            sourceCount: contextRequests.length,
+            resultCount: results.filter(r => r).length,
+            duration,
+            traceId
+        });
+
+        return injectionContext;
+    }
+
+    transformForNarrative(context: InjectionContext): string {
+        const parts: string[] = [];
+        if (context.sources.calendar?.events?.length > 0) {
+            parts.push(`You have ${context.sources.calendar.events.length} upcoming events.`);
+        }
+        if (context.sources.notes?.length > 0) {
+            parts.push(`You have ${context.sources.notes.length} relevant notes.`);
+        }
+        return parts.join(' ');
+    }
+
+    clearCache(sourceName?: string): void {
+        if (sourceName) {
+            const keysToDelete: string[] = [];
+            for (const [key] of this.contextCache) {
+                if (key.startsWith(`${sourceName}:`)) {
+                    keysToDelete.push(key);
+                }
+            }
+            keysToDelete.forEach(key => this.contextCache.delete(key));
+            telemetry.emit('context:cache:cleared', { source: sourceName });
+        } else {
+            this.contextCache.clear();
+            telemetry.emit('context:cache:cleared', { source: 'all' });
+        }
+    }
+}
+
+export function createContextEngine(agent?: SelfAwareAgent): ContextEngine {
+    return new ContextEngine(agent);
+}
+
+export const defaultContextEngine = createContextEngine();

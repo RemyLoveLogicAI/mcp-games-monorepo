@@ -1,6 +1,26 @@
 version: '3.8'
 
 services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: games_user
+      POSTGRES_PASSWORD: secure_password_change_me
+      POSTGRES_DB: mcp_games
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./packages/mcp-games-server/migrations:/docker-entrypoint-initdb.d
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U games_user -d mcp_games"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cache & Telemetry Bus
   redis:
     image: redis:alpine
     ports:
@@ -14,5 +34,35 @@ services:
       timeout: 3s
       retries: 5
 
+  # MCP Games Server
+  games-server:
+    build:
+      context: ./packages/mcp-games-server
+      dockerfile: Dockerfile
+    environment:
+      SUPABASE_URL: postgresql://games_user:secure_password_change_me@postgres:5432/mcp_games
+      SUPABASE_KEY: dev-key-change-in-production
+      REDIS_URL: redis://redis:6379
+      NODE_ENV: development
+      LOG_LEVEL: debug
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
 volumes:
+  postgres_data:
   redis_data:
+
+networks:
+  default:
+    name: mcp_games_network
