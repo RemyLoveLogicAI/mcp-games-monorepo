@@ -1,6 +1,6 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { Session } from '@omnigents/shared';
-import { StateStore, InMemoryStateStore } from './state.js';
+import { StateStore, InMemoryStateStore } from '../core/state-manager.js';
 import { telemetry } from '../observability/index.js';
 import { v4 as uuidv4 } from 'uuid';
 import { SelfAwareAgent } from '@omnigents/tier0-runtime';

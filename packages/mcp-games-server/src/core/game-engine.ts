@@ -64,9 +64,7 @@ export class GameEngine {
 
             const duration = Date.now() - start;
             if (this.agent) {
-                await this.agent.track({
-                    operation: 'game:start',
-                    status: 'success',
+                telemetry.emit('game:start:success', {
                     durationMs: duration,
                     traceId
                 });
@@ -77,9 +75,7 @@ export class GameEngine {
         } catch (error) {
             const duration = Date.now() - start;
             if (this.agent) {
-                await this.agent.track({
-                    operation: 'game:start',
-                    status: 'failure',
+                telemetry.emit('game:start:error', {
                     errorMessage: error instanceof Error ? error.message : 'Unknown error',
                     durationMs: duration,
                     traceId
@@ -178,9 +174,7 @@ export class GameEngine {
 
                 const duration = Date.now() - start;
                 if (this.agent) {
-                    await this.agent.track({
-                        operation: 'game:action',
-                        status: 'success',
+                    telemetry.emit('game:action:success', {
                         durationMs: duration,
                         traceId
                     });
@@ -207,9 +201,7 @@ export class GameEngine {
         } catch (error) {
             const duration = Date.now() - start;
             if (this.agent) {
-                await this.agent.track({
-                    operation: 'game:action',
-                    status: 'failure',
+                telemetry.emit('game:action:error', {
                     errorMessage: error instanceof Error ? error.message : 'Unknown error',
                     durationMs: duration,
                     traceId

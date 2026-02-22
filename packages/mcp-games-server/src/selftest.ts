@@ -1,6 +1,6 @@
 import { GameDefinition, Telemetry, logger } from '@omnigents/shared';
 import { GameEngine } from './core/game-engine.js';
-import { InMemoryStateStore } from './core/state-manager.js';
+
 import { telemetry } from './observability/index.js';
 
 const tracing = new Telemetry({
@@ -40,10 +40,10 @@ async function runTest() {
     await tracing.start();
     logger.info('Tracing initialized');
 
-    const stateStore = new InMemoryStateStore();
+    const { defaultStateManager } = await import('./core/state-manager.js');
     const { ContextEngine } = await import('./core/context-engine.js');
     const contextEngine = new ContextEngine();
-    const engine = new GameEngine(stateStore, contextEngine);
+    const engine = new GameEngine(defaultStateManager, contextEngine);
 
     console.log('Testing Parser...');
     const { gameParser } = await import('./core/parser.js');

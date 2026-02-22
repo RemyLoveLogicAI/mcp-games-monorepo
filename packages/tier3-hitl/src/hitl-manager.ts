@@ -44,7 +44,9 @@ export class HitlManager {
         // Listen for direct HITL requests from Tier 2
         telemetryBus.subscribe<CreateHitlParams>(
             'tier3:hitl',
-            (data) => this.createRequest(data)
+            async (data) => {
+                await this.createRequest(data);
+            }
         );
 
         // Periodically check for timed-out requests

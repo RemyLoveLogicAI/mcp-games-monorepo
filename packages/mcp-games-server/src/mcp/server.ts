@@ -21,10 +21,11 @@ const server = new Server(
 
 import { GameDefinition } from '@omnigents/shared';
 import { getStateStore, GameEngine, gameParser } from "../core/index.js";
+import { createStateManager } from "../core/state-manager.js";
 import path from 'path';
 
 // Initialize Engine
-const stateStore = getStateStore();
+const stateStore = createStateManager(getStateStore());
 let engine: GameEngine;
 
 // Temporary: Load a default game for testing

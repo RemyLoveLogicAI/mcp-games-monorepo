@@ -61,13 +61,6 @@ export class AutomaticGainControl extends EventEmitter {
   constructor(config: AGCConfig) {
     super();
     this.config = {
-      targetLevel: 0.75,
-      attackTime: 10,
-      releaseTime: 100,
-      maxGain: 40,
-      compression: 0.5,
-      noiseGateThreshold: 0.01,
-      lookAhead: 10,
       ...config,
     };
 
@@ -114,6 +107,9 @@ export class AutomaticGainControl extends EventEmitter {
       // Measure clipping
       const clippingStats = this.detectClipping(outputData);
 
+      // Measure level after gain
+      const outputLevel = this.measureLevel(outputData);
+
       // Update statistics
       this.updateStats(
         this.currentGain,
@@ -121,8 +117,6 @@ export class AutomaticGainControl extends EventEmitter {
         clippingStats.clippingPercentage,
         clippingStats.clippingFrames > 0
       );
-
-      const outputLevel = this.measureLevel(outputData);
 
       const frame: AGCFrame = {
         data: outputData,

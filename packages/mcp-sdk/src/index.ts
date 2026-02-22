@@ -131,47 +131,47 @@ export class MCPClient {
  * Fluent API for building semantic queries
  */
 export class SemanticQueryBuilder {
-  private query: Partial<SemanticQuery> = {};
+  private _query: Partial<SemanticQuery> = {};
 
   server(serverId: string): this {
-    this.query.server = serverId;
+    this._query.server = serverId;
     return this;
   }
 
   query(queryText: string): this {
-    this.query.query = queryText;
+    this._query.query = queryText;
     return this;
   }
 
   filter(key: string, value: unknown): this {
-    if (!this.query.filters) {
-      this.query.filters = {};
+    if (!this._query.filters) {
+      this._query.filters = {};
     }
-    this.query.filters[key] = value;
+    this._query.filters[key] = value;
     return this;
   }
 
   maxResults(max: number): this {
-    if (!this.query.options) {
-      this.query.options = {};
+    if (!this._query.options) {
+      this._query.options = {};
     }
-    this.query.options.maxResults = max;
+    this._query.options.maxResults = max;
     return this;
   }
 
   cachePolicy(policy: 'no-cache' | 'cache-first' | 'network-first'): this {
-    if (!this.query.options) {
-      this.query.options = {};
+    if (!this._query.options) {
+      this._query.options = {};
     }
-    this.query.options.cachePolicy = policy;
+    this._query.options.cachePolicy = policy;
     return this;
   }
 
   build(): SemanticQuery {
-    if (!this.query.server || !this.query.query) {
+    if (!this._query.server || !this._query.query) {
       throw new Error('Server and query are required');
     }
-    return this.query as SemanticQuery;
+    return this._query as SemanticQuery;
   }
 }
 
