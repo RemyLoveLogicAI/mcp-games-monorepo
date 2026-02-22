@@ -71,9 +71,7 @@ export class JWTHandler {
 
       const duration = Date.now() - start;
       if (this.agent) {
-        await this.agent.track({
-          operation: 'auth:generate_access_token',
-          status: 'success',
+        telemetry.emit('auth:generate_access_token:success', {
           durationMs: duration,
           traceId,
         });
@@ -84,9 +82,7 @@ export class JWTHandler {
     } catch (error) {
       const duration = Date.now() - start;
       if (this.agent) {
-        await this.agent.track({
-          operation: 'auth:generate_access_token',
-          status: 'failure',
+        telemetry.emit('auth:generate_access_token:error', {
           errorMessage: error instanceof Error ? error.message : 'Unknown error',
           durationMs: duration,
           traceId,
@@ -114,9 +110,7 @@ export class JWTHandler {
 
       const duration = Date.now() - start;
       if (this.agent) {
-        await this.agent.track({
-          operation: 'auth:generate_refresh_token',
-          status: 'success',
+        telemetry.emit('auth:generate_refresh_token:success', {
           durationMs: duration,
           traceId,
         });
@@ -127,9 +121,7 @@ export class JWTHandler {
     } catch (error) {
       const duration = Date.now() - start;
       if (this.agent) {
-        await this.agent.track({
-          operation: 'auth:generate_refresh_token',
-          status: 'failure',
+        telemetry.emit('auth:generate_refresh_token:error', {
           errorMessage: error instanceof Error ? error.message : 'Unknown error',
           durationMs: duration,
           traceId,
@@ -157,9 +149,7 @@ export class JWTHandler {
 
       const duration = Date.now() - start;
       if (this.agent) {
-        await this.agent.track({
-          operation: 'auth:validate_token',
-          status: 'success',
+        telemetry.emit('auth:validate_token:success', {
           durationMs: duration,
           traceId,
         });
@@ -169,9 +159,7 @@ export class JWTHandler {
     } catch (error) {
       const duration = Date.now() - start;
       if (this.agent) {
-        await this.agent.track({
-          operation: 'auth:validate_token',
-          status: 'failure',
+        telemetry.emit('auth:validate_token:error', {
           errorMessage: error instanceof Error ? error.message : 'Unknown error',
           durationMs: duration,
           traceId,
@@ -207,9 +195,7 @@ export class JWTHandler {
 
       const duration = Date.now() - start;
       if (this.agent) {
-        await this.agent.track({
-          operation: 'auth:refresh_token',
-          status: 'success',
+        telemetry.emit('auth:refresh_token:success', {
           durationMs: duration,
           traceId,
         });
@@ -220,9 +206,7 @@ export class JWTHandler {
     } catch (error) {
       const duration = Date.now() - start;
       if (this.agent) {
-        await this.agent.track({
-          operation: 'auth:refresh_token',
-          status: 'failure',
+        telemetry.emit('auth:refresh_token:error', {
           errorMessage: error instanceof Error ? error.message : 'Unknown error',
           durationMs: duration,
           traceId,

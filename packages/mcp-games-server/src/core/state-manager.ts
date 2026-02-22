@@ -117,9 +117,7 @@ export class StateManager {
             const duration = Date.now() - start;
 
             if (this.agent) {
-                await this.agent.track({
-                    operation: 'createSession',
-                    status: 'success',
+                telemetry.emit('createSession:success', {
                     durationMs: duration,
                     traceId
                 });
@@ -129,9 +127,7 @@ export class StateManager {
         } catch (error) {
             const duration = Date.now() - start;
             if (this.agent) {
-                await this.agent.track({
-                    operation: 'createSession',
-                    status: 'failure',
+                telemetry.emit('createSession:error', {
                     errorMessage: error instanceof Error ? error.message : 'Unknown error',
                     durationMs: duration,
                     traceId
@@ -148,9 +144,7 @@ export class StateManager {
             const duration = Date.now() - start;
 
             if (this.agent) {
-                await this.agent.track({
-                    operation: 'getSession',
-                    status: 'success',
+                telemetry.emit('getSession:success', {
                     durationMs: duration,
                     traceId
                 });
@@ -160,9 +154,7 @@ export class StateManager {
         } catch (error) {
             const duration = Date.now() - start;
             if (this.agent) {
-                await this.agent.track({
-                    operation: 'getSession',
-                    status: 'failure',
+                telemetry.emit('getSession:error', {
                     errorMessage: error instanceof Error ? error.message : 'Unknown error',
                     durationMs: duration,
                     traceId
@@ -179,9 +171,7 @@ export class StateManager {
             const duration = Date.now() - start;
 
             if (this.agent) {
-                await this.agent.track({
-                    operation: 'saveSession',
-                    status: 'success',
+                telemetry.emit('saveSession:success', {
                     durationMs: duration,
                     traceId
                 });
@@ -189,9 +179,7 @@ export class StateManager {
         } catch (error) {
             const duration = Date.now() - start;
             if (this.agent) {
-                await this.agent.track({
-                    operation: 'saveSession',
-                    status: 'failure',
+                telemetry.emit('saveSession:error', {
                     errorMessage: error instanceof Error ? error.message : 'Unknown error',
                     durationMs: duration,
                     traceId
@@ -321,9 +309,7 @@ export class StateManager {
 
             const duration = Date.now() - start;
             if (this.agent) {
-                await this.agent.track({
-                    operation: 'logAction',
-                    status: 'success',
+                telemetry.emit('logAction:success', {
                     durationMs: duration,
                     traceId
                 });
@@ -331,9 +317,7 @@ export class StateManager {
         } catch (error) {
             const duration = Date.now() - start;
             if (this.agent) {
-                await this.agent.track({
-                    operation: 'logAction',
-                    status: 'failure',
+                telemetry.emit('logAction:error', {
                     errorMessage: error instanceof Error ? error.message : 'Unknown error',
                     durationMs: duration,
                     traceId

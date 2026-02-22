@@ -69,9 +69,7 @@ export class VoiceCallHandler {
 
       const duration = Date.now() - start;
       if (this.agent) {
-        await this.agent.track({
-          operation: 'voice:initialize_call',
-          status: 'success',
+        telemetry.emit('voice:initialize_call:success', {
           durationMs: duration,
           traceId,
         });
@@ -82,9 +80,7 @@ export class VoiceCallHandler {
     } catch (error) {
       const duration = Date.now() - start;
       if (this.agent) {
-        await this.agent.track({
-          operation: 'voice:initialize_call',
-          status: 'failure',
+        telemetry.emit('voice:initialize_call:error', {
           errorMessage: error instanceof Error ? error.message : 'Unknown error',
           durationMs: duration,
           traceId,
@@ -121,9 +117,7 @@ export class VoiceCallHandler {
 
       const duration = Date.now() - start;
       if (this.agent) {
-        await this.agent.track({
-          operation: 'voice:accept_call',
-          status: 'success',
+        telemetry.emit('voice:accept_call:success', {
           durationMs: duration,
           traceId,
         });
@@ -134,9 +128,7 @@ export class VoiceCallHandler {
     } catch (error) {
       const duration = Date.now() - start;
       if (this.agent) {
-        await this.agent.track({
-          operation: 'voice:accept_call',
-          status: 'failure',
+        telemetry.emit('voice:accept_call:error', {
           errorMessage: error instanceof Error ? error.message : 'Unknown error',
           durationMs: duration,
           traceId,
@@ -174,9 +166,7 @@ export class VoiceCallHandler {
 
       const duration = Date.now() - start;
       if (this.agent) {
-        await this.agent.track({
-          operation: 'voice:reject_call',
-          status: 'success',
+        telemetry.emit('voice:reject_call:success', {
           durationMs: duration,
           traceId,
         });
@@ -187,9 +177,7 @@ export class VoiceCallHandler {
     } catch (error) {
       const duration = Date.now() - start;
       if (this.agent) {
-        await this.agent.track({
-          operation: 'voice:reject_call',
-          status: 'failure',
+        telemetry.emit('voice:reject_call:error', {
           errorMessage: error instanceof Error ? error.message : 'Unknown error',
           durationMs: duration,
           traceId,
@@ -222,7 +210,7 @@ export class VoiceCallHandler {
       callState.endedAt = new Date();
       callState.duration = Math.floor(
         (callState.endedAt.getTime() - (callState.acceptedAt?.getTime() || callState.initiatedAt.getTime())) /
-          1000
+        1000
       );
 
       // Keep in Redis briefly for history
@@ -230,9 +218,7 @@ export class VoiceCallHandler {
 
       const duration = Date.now() - start;
       if (this.agent) {
-        await this.agent.track({
-          operation: 'voice:end_call',
-          status: 'success',
+        telemetry.emit('voice:end_call:success', {
           durationMs: duration,
           traceId,
         });
@@ -243,9 +229,7 @@ export class VoiceCallHandler {
     } catch (error) {
       const duration = Date.now() - start;
       if (this.agent) {
-        await this.agent.track({
-          operation: 'voice:end_call',
-          status: 'failure',
+        telemetry.emit('voice:end_call:error', {
           errorMessage: error instanceof Error ? error.message : 'Unknown error',
           durationMs: duration,
           traceId,
@@ -277,7 +261,7 @@ export class VoiceCallHandler {
                 callState.reason = 'Timeout';
                 callState.duration = Math.floor(
                   (callState.endedAt.getTime() - (callState.acceptedAt?.getTime() || callState.initiatedAt.getTime())) /
-                    1000
+                  1000
                 );
 
                 await this.redis.setex(key, 60, JSON.stringify(callState));

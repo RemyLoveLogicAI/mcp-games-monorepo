@@ -25,7 +25,7 @@ import path from 'path';
 
 // Initialize Engine
 const stateStore = getStateStore();
-const engine = new GameEngine(stateStore);
+let engine: GameEngine;
 
 // Temporary: Load a default game for testing
 // In robust implementation, we might have a GameRegistry
@@ -83,6 +83,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { name, arguments: args } = request.params;
 
     telemetry.emit('tool:call', { tool: name, args });
+    const traceId = `trace-${Date.now()}`;
 
     try {
         if (name === "health_check") {
@@ -103,7 +104,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             if (!loadedGame) throw new Error("No game loaded. Use load_game first.");
             const game = loadedGame;
             const playerId = String(args?.playerId);
-            const { session, scene } = await engine.startGame(game, playerId);
+            const { session, scene } = await engine.startGame(game, playerId, traceId);
             return {
                 content: [{
                     type: "text", text: JSON.stringify({
@@ -121,7 +122,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             const game = loadedGame;
             const sessionId = String(args?.sessionId);
             const choiceId = String(args?.choiceId);
-            const { session, scene, narrative } = await engine.makeChoice(game, sessionId, choiceId);
+            const { session, scene, narrative } = await engine.executeAction(game, sessionId, { type: 'choice', choiceId }, traceId);
             return {
                 content: [{
                     type: "text", text: JSON.stringify({
@@ -142,6 +143,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 });
 
 export async function startServer() {
+    const { ContextEngine } = await import('../core/context-engine.js');
+    const contextEngine = new ContextEngine();
+    engine = new GameEngine(stateStore, contextEngine);
+
     const transport = new StdioServerTransport();
     await server.connect(transport);
     telemetry.emit('server:start', { transport: 'stdio' });

@@ -1,5 +1,5 @@
 import { GameDefinition, SceneDefinition as Scene, ChoiceDefinition as Choice, Session } from '@omnigents/shared';
-import { StateStore } from './state-manager.js';
+import { StateManager } from './state-manager.js';
 import { ContextEngine } from './context-engine.js';
 import { telemetry } from '../observability/index.js';
 import { SelfAwareAgent } from '@omnigents/tier0-runtime';
@@ -30,7 +30,7 @@ export class GameEngine {
     private agent: SelfAwareAgent | null;
 
     constructor(
-        private stateStore: StateStore,
+        private stateStore: StateManager,
         private contextEngine: ContextEngine,
         agent?: SelfAwareAgent
     ) {
@@ -138,7 +138,7 @@ export class GameEngine {
                     sessionId,
                     currentScene.id,
                     { choiceId: action.choiceId, effectsApplied },
-                    session.variables,
+                    session.variables as any,
                     Date.now() - actionStart,
                     traceId
                 );

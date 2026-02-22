@@ -39,9 +39,7 @@ export class CalendarContextSource implements ContextSource {
 
             const duration = Date.now() - start;
             if (this.agent) {
-                await this.agent.track({
-                    operation: 'calendar:fetch',
-                    status: 'success',
+                telemetry.emit('calendar:fetch:success', {
                     durationMs: duration,
                     traceId
                 });
@@ -52,9 +50,7 @@ export class CalendarContextSource implements ContextSource {
         } catch (error) {
             const duration = Date.now() - start;
             if (this.agent) {
-                await this.agent.track({
-                    operation: 'calendar:fetch',
-                    status: 'failure',
+                telemetry.emit('calendar:fetch:error', {
                     errorMessage: error instanceof Error ? error.message : 'Unknown error',
                     durationMs: duration,
                     traceId
@@ -92,9 +88,7 @@ export class NotesContextSource implements ContextSource {
 
             const duration = Date.now() - start;
             if (this.agent) {
-                await this.agent.track({
-                    operation: 'notes:fetch',
-                    status: 'success',
+                telemetry.emit('notes:fetch:success', {
                     durationMs: duration,
                     traceId
                 });
@@ -105,9 +99,7 @@ export class NotesContextSource implements ContextSource {
         } catch (error) {
             const duration = Date.now() - start;
             if (this.agent) {
-                await this.agent.track({
-                    operation: 'notes:fetch',
-                    status: 'failure',
+                telemetry.emit('notes:fetch:error', {
                     errorMessage: error instanceof Error ? error.message : 'Unknown error',
                     durationMs: duration,
                     traceId
@@ -130,8 +122,8 @@ export class ContextEngine {
     }
 
     private registerDefaultSources(): void {
-        this.registerSource(new CalendarContextSource(this.agent));
-        this.registerSource(new NotesContextSource(this.agent));
+        this.registerSource(new CalendarContextSource(this.agent || undefined));
+        this.registerSource(new NotesContextSource(this.agent || undefined));
     }
 
     registerSource(source: ContextSource): void {
@@ -172,9 +164,7 @@ export class ContextEngine {
             this.contextCache.set(cacheKey, contextData);
 
             if (this.agent) {
-                await this.agent.track({
-                    operation: `context:fetch:${sourceName}`,
-                    status: 'success',
+                telemetry.emit(`context:fetch:${sourceName}:success`, {
                     durationMs: duration,
                     traceId
                 });
@@ -184,9 +174,7 @@ export class ContextEngine {
         } catch (error) {
             const duration = Date.now() - start;
             if (this.agent) {
-                await this.agent.track({
-                    operation: `context:fetch:${sourceName}`,
-                    status: 'failure',
+                telemetry.emit(`context:fetch:${sourceName}:error`, {
                     errorMessage: error instanceof Error ? error.message : 'Unknown error',
                     durationMs: duration,
                     traceId
@@ -214,9 +202,7 @@ export class ContextEngine {
 
         const duration = Date.now() - start;
         if (this.agent) {
-            await this.agent.track({
-                operation: 'context:inject',
-                status: 'success',
+            telemetry.emit('context:inject:success', {
                 durationMs: duration,
                 traceId
             });
