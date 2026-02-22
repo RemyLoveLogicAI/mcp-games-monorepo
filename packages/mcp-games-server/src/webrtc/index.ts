@@ -3,8 +3,6 @@ export {
   PeerConnectionManager,
   ConnectionState,
   createPeerConnectionManager,
-  type HealthStatus,
-  type HealthCheck,
   type PeerConnectionConfig,
   type SignalingMessage,
   type ICECandidate,

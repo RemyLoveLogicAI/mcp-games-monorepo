@@ -64,9 +64,7 @@ export class SessionSync {
 
       const duration = Date.now() - start;
       if (this.agent) {
-        await this.agent.track({
-          operation: 'session:submit_action',
-          status: 'success',
+        telemetry.emit('session:submit_action:success', {
           durationMs: duration,
           traceId,
         });
@@ -82,9 +80,7 @@ export class SessionSync {
     } catch (error) {
       const duration = Date.now() - start;
       if (this.agent) {
-        await this.agent.track({
-          operation: 'session:submit_action',
-          status: 'failure',
+        telemetry.emit('session:submit_action:error', {
           errorMessage: error instanceof Error ? error.message : 'Unknown error',
           durationMs: duration,
           traceId,
@@ -134,9 +130,7 @@ export class SessionSync {
 
       const duration = Date.now() - start;
       if (this.agent) {
-        await this.agent.track({
-          operation: 'session:resolve_conflict',
-          status: 'success',
+        telemetry.emit('session:resolve_conflict:success', {
           durationMs: duration,
           traceId,
         });
@@ -153,9 +147,7 @@ export class SessionSync {
     } catch (error) {
       const duration = Date.now() - start;
       if (this.agent) {
-        await this.agent.track({
-          operation: 'session:resolve_conflict',
-          status: 'failure',
+        telemetry.emit('session:resolve_conflict:error', {
           errorMessage: error instanceof Error ? error.message : 'Unknown error',
           durationMs: duration,
           traceId,

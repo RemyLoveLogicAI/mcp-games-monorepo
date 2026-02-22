@@ -63,8 +63,8 @@ export class PeerConnectionManager extends EventEmitter {
   private reconnectDelay: number = 1000; // Start at 1 second
   private maxReconnectDelay: number = 30000; // Cap at 30 seconds
   private iceCandidates: ICECandidate[] = [];
-  private localDescription: RTCSessionDescription | null = null;
-  private remoteDescription: RTCSessionDescription | null = null;
+  private localDescription: RTCSessionDescriptionInit | null = null;
+  private remoteDescription: RTCSessionDescriptionInit | null = null;
   private dataChannels: Map<string, RTCDataChannel> = new Map();
   private audioTracks: MediaStreamTrack[] = [];
   private videoTracks: MediaStreamTrack[] = [];
@@ -319,7 +319,11 @@ export class PeerConnectionManager extends EventEmitter {
       throw new Error(`Data channel '${label}' is not open`);
     }
 
-    dataChannel.send(data);
+    if (typeof data === 'string') {
+      dataChannel.send(data);
+    } else {
+      dataChannel.send(data as any);
+    }
 
     telemetry.emit('webrtc:data_sent', {
       connectionId: this.connectionId,
@@ -438,6 +442,18 @@ export class PeerConnectionManager extends EventEmitter {
    */
   getICECandidates(): ICECandidate[] {
     return [...this.iceCandidates];
+  }
+
+  get peerConnectionInstance(): RTCPeerConnection | null {
+    return this.peerConnection;
+  }
+
+  get activeDataChannels(): Map<string, RTCDataChannel> {
+    return this.dataChannels;
+  }
+
+  get activeAudioTracks(): MediaStreamTrack[] {
+    return this.audioTracks;
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -623,9 +639,9 @@ export class PeerConnectionManager extends EventEmitter {
 
     try {
       const stats = await this.peerConnection.getStats();
-      const inboundRtpStats = Array.from(stats.values()).find(
-        (report) => report.type === 'inbound-rtp'
-      );
+      const inboundRtpStats = Array.from((stats as any).values()).find(
+        (report: any) => report.type === 'inbound-rtp'
+      ) as any;
 
       if (inboundRtpStats) {
         this.lastStats = {

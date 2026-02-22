@@ -74,9 +74,7 @@ export class TurnExecutor {
 
       const duration = Date.now() - start;
       if (this.agent) {
-        await this.agent.track({
-          operation: 'turn:initialize_round',
-          status: 'success',
+        telemetry.emit('turn:initialize_round:success', {
           durationMs: duration,
           traceId,
         });
@@ -93,9 +91,7 @@ export class TurnExecutor {
     } catch (error) {
       const duration = Date.now() - start;
       if (this.agent) {
-        await this.agent.track({
-          operation: 'turn:initialize_round',
-          status: 'failure',
+        telemetry.emit('turn:initialize_round:error', {
           errorMessage: error instanceof Error ? error.message : 'Unknown error',
           durationMs: duration,
           traceId,
@@ -136,9 +132,7 @@ export class TurnExecutor {
 
       const duration = Date.now() - start;
       if (this.agent) {
-        await this.agent.track({
-          operation: 'turn:submit_action',
-          status: 'success',
+        telemetry.emit('turn:submit_action:success', {
           durationMs: duration,
           traceId,
         });
@@ -155,9 +149,7 @@ export class TurnExecutor {
     } catch (error) {
       const duration = Date.now() - start;
       if (this.agent) {
-        await this.agent.track({
-          operation: 'turn:submit_action',
-          status: 'failure',
+        telemetry.emit('turn:submit_action:error', {
           errorMessage: error instanceof Error ? error.message : 'Unknown error',
           durationMs: duration,
           traceId,
@@ -195,9 +187,7 @@ export class TurnExecutor {
 
       const duration = Date.now() - start;
       if (this.agent) {
-        await this.agent.track({
-          operation: 'turn:advance_round',
-          status: 'success',
+        telemetry.emit('turn:advance_round:success', {
           durationMs: duration,
           traceId,
         });
@@ -214,9 +204,7 @@ export class TurnExecutor {
     } catch (error) {
       const duration = Date.now() - start;
       if (this.agent) {
-        await this.agent.track({
-          operation: 'turn:advance_round',
-          status: 'failure',
+        telemetry.emit('turn:advance_round:error', {
           errorMessage: error instanceof Error ? error.message : 'Unknown error',
           durationMs: duration,
           traceId,

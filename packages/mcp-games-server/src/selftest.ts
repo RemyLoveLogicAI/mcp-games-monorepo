@@ -1,6 +1,6 @@
 import { GameDefinition, Telemetry, logger } from '@omnigents/shared';
-import { GameEngine } from './core/engine.js';
-import { InMemoryStateStore } from './core/state.js';
+import { GameEngine } from './core/game-engine.js';
+import { InMemoryStateStore } from './core/state-manager.js';
 import { telemetry } from './observability/index.js';
 
 const tracing = new Telemetry({
@@ -41,7 +41,9 @@ async function runTest() {
     logger.info('Tracing initialized');
 
     const stateStore = new InMemoryStateStore();
-    const engine = new GameEngine(stateStore);
+    const { ContextEngine } = await import('./core/context-engine.js');
+    const contextEngine = new ContextEngine();
+    const engine = new GameEngine(stateStore, contextEngine);
 
     console.log('Testing Parser...');
     const { gameParser } = await import('./core/parser.js');
@@ -53,13 +55,13 @@ async function runTest() {
     if (parsedGame.id !== 'parsed-game') throw new Error('Parser failed');
 
     console.log('Starting game...');
-    const { session, scene } = await engine.startGame(sampleGame, 'player-1');
+    const { session, scene } = await engine.startGame(sampleGame, 'player-1', 'test-trace');
     console.log(`Started session: ${session.id}, Scene: ${scene.title}`);
 
     if (scene.id !== 'start') throw new Error('Wrong start scene');
 
     console.log('Making choice...');
-    const result = await engine.makeChoice(sampleGame, session.id, 'c1');
+    const result = await engine.executeAction(sampleGame, session.id, { type: 'choice', choiceId: 'c1' }, 'test-trace');
     console.log(`New Scene: ${result.scene.title}`);
 
     if (result.scene.id !== 'next') throw new Error('Wrong next scene');

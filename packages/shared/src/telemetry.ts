@@ -1,7 +1,7 @@
 import { NodeSDK } from '@opentelemetry/sdk-node';
 import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentations-node';
 import { ConsoleSpanExporter } from '@opentelemetry/sdk-trace-base';
-import { Resource } from '@opentelemetry/resources';
+import { resourceFromAttributes } from '@opentelemetry/resources';
 import { SemanticResourceAttributes } from '@opentelemetry/semantic-conventions';
 import { logger } from './logger.js';
 
@@ -18,7 +18,7 @@ export class Telemetry {
         this.serviceName = config.serviceName;
 
         this.sdk = new NodeSDK({
-            resource: new Resource({
+            resource: resourceFromAttributes({
                 [SemanticResourceAttributes.SERVICE_NAME]: config.serviceName,
                 [SemanticResourceAttributes.SERVICE_VERSION]: config.serviceVersion,
             }),

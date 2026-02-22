@@ -74,7 +74,7 @@ export interface Tier0HealthEvent {
   agentId: string;
   service: string;
   eventType: string;
-  status: 'OK' | 'DEGRADED' | 'CRITICAL';
+  status: 'OK' | 'DEGRADED' | 'CRITICAL' | 'UNKNOWN';
   healthScore: number;
   data: Record<string, unknown>;
   timestamp: number;

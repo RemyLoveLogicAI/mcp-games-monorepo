@@ -176,12 +176,18 @@ importers:
       '@types/uuid':
         specifier: ^11.0.0
         version: 11.0.0
+      ioredis:
+        specifier: ^5.3.2
+        version: 5.9.2
       pino:
         specifier: ^10.3.0
         version: 10.3.0
       pino-pretty:
         specifier: ^13.1.3
         version: 13.1.3
+      telegraf:
+        specifier: ^4.15.0
+        version: 4.16.3
       uuid:
         specifier: ^13.0.0
         version: 13.0.0
@@ -192,6 +198,9 @@ importers:
         specifier: ^3.22.4
         version: 3.25.76
     devDependencies:
+      '@types/express':
+        specifier: ^4.17.21
+        version: 4.17.25
       '@types/node':
         specifier: ^20.11.0
         version: 20.19.33
@@ -201,12 +210,12 @@ importers:
 
   packages/mcp-sdk:
     dependencies:
+      '@omnigents/shared':
+        specifier: workspace:*
+        version: link:../shared
       axios:
         specifier: ^1.6.2
         version: 1.13.5
-      shared-types:
-        specifier: workspace:*
-        version: link:../shared-types
     devDependencies:
       '@types/node':
         specifier: ^20.10.0
@@ -217,12 +226,36 @@ importers:
 
   packages/shared:
     dependencies:
+      '@opentelemetry/api':
+        specifier: ^1.9.0
+        version: 1.9.0
+      '@opentelemetry/auto-instrumentations-node':
+        specifier: ^0.69.0
+        version: 0.69.0(@opentelemetry/api@1.9.0)(@opentelemetry/core@2.5.0)
+      '@opentelemetry/resources':
+        specifier: ^2.5.0
+        version: 2.5.0(@opentelemetry/api@1.9.0)
+      '@opentelemetry/sdk-node':
+        specifier: ^0.211.0
+        version: 0.211.0(@opentelemetry/api@1.9.0)
+      '@opentelemetry/sdk-trace-base':
+        specifier: ^2.5.0
+        version: 2.5.0(@opentelemetry/api@1.9.0)
+      '@opentelemetry/semantic-conventions':
+        specifier: ^1.39.0
+        version: 1.39.0
       ioredis:
         specifier: ^5.3.2
         version: 5.9.2
       nanoid:
         specifier: ^5.0.4
         version: 5.1.6
+      pino:
+        specifier: ^10.3.0
+        version: 10.3.0
+      pino-pretty:
+        specifier: ^13.1.3
+        version: 13.1.3
     devDependencies:
       '@types/node':
         specifier: ^20.11.0
@@ -239,9 +272,9 @@ importers:
 
   packages/story-engine:
     dependencies:
-      shared-types:
+      '@omnigents/shared':
         specifier: workspace:*
-        version: link:../shared-types
+        version: link:../shared
     devDependencies:
       '@types/node':
         specifier: ^20.10.0
@@ -306,6 +339,9 @@ importers:
       '@supabase/supabase-js':
         specifier: ^2.39.0
         version: 2.95.3
+      cli-table3:
+        specifier: 0.6.5
+        version: 0.6.5
     devDependencies:
       '@types/node':
         specifier: ^20.19.33
@@ -351,6 +387,13 @@ packages:
     transitivePeerDependencies:
       - encoding
     dev: false
+
+  /@colors/colors@1.5.0:
+    resolution: {integrity: sha512-ooWCrlZP11i8GImSjTHYHLkvFDP48nS4+204nGb1RiX/WXYHmJA2III9/e2DWVabCESdW7hBAEzHRqUn9OUVvQ==}
+    engines: {node: '>=0.1.90'}
+    requiresBuild: true
+    dev: false
+    optional: true
 
   /@emnapi/core@1.8.1:
     resolution: {integrity: sha512-AvT9QFpxK0Zd8J0jopedNm+w/2fIzvtPKPjqyw9jwvBaReTTqPBk9Hixaz7KbjimP+QNz605/XnjFcDAL2pqBg==}
@@ -3061,6 +3104,15 @@ packages:
 
   /cjs-module-lexer@2.2.0:
     resolution: {integrity: sha512-4bHTS2YuzUvtoLjdy+98ykbNB5jS0+07EvFNXerqZQJ89F7DI6ET7OQo/HJuW6K0aVsKA9hj9/RVb2kQVOrPDQ==}
+    dev: false
+
+  /cli-table3@0.6.5:
+    resolution: {integrity: sha512-+W/5efTR7y5HRD7gACw9yQjqMVvEMLBHmboM/kPWam+H+Hmyrgjh6YncVKK122YZkXrLudzTuAukUw9FnMf7IQ==}
+    engines: {node: 10.* || >= 12.*}
+    dependencies:
+      string-width: 4.2.3
+    optionalDependencies:
+      '@colors/colors': 1.5.0
     dev: false
 
   /client-only@0.0.1:

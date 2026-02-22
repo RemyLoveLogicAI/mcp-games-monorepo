@@ -65,11 +65,11 @@ export class ICEManager extends EventEmitter {
     prflxCandidates: ICECandidateMetrics[];
     relayCandidates: ICECandidateMetrics[];
   } = {
-    hostCandidates: [],
-    srflxCandidates: [],
-    prflxCandidates: [],
-    relayCandidates: [],
-  };
+      hostCandidates: [],
+      srflxCandidates: [],
+      prflxCandidates: [],
+      relayCandidates: [],
+    };
 
   constructor(peerConnection: RTCPeerConnection) {
     super();
@@ -284,20 +284,20 @@ export class ICEManager extends EventEmitter {
   private async updateCandidateMetrics(): Promise<void> {
     try {
       const stats = await this.peerConnection.getStats();
-      const candidatePair = Array.from(stats.values()).find(
-        (report) => report.type === 'candidate-pair' && report.state === 'succeeded'
-      );
+      const candidatePair = Array.from((stats as any).values()).find(
+        (report: any) => report.type === 'candidate-pair' && report.state === 'succeeded'
+      ) as any;
 
       if (candidatePair) {
         // Update selected candidate pair
         const localCandidateId = candidatePair.localCandidateId;
         const remoteCandidateId = candidatePair.remoteCandidateId;
 
-        const localCandidate = Array.from(stats.values()).find(
-          (report) => report.type === 'local-candidate' && report.id === localCandidateId
+        const localCandidate = Array.from((stats as any).values()).find(
+          (report: any) => report.type === 'local-candidate' && report.id === localCandidateId
         );
-        const remoteCandidate = Array.from(stats.values()).find(
-          (report) => report.type === 'remote-candidate' && report.id === remoteCandidateId
+        const remoteCandidate = Array.from((stats as any).values()).find(
+          (report: any) => report.type === 'remote-candidate' && report.id === remoteCandidateId
         );
 
         if (localCandidate && remoteCandidate) {
@@ -342,9 +342,9 @@ export class ICEManager extends EventEmitter {
   private async updateConnectionQuality(): Promise<void> {
     try {
       const stats = await this.peerConnection.getStats();
-      const inboundRtp = Array.from(stats.values()).find(
-        (report) => report.type === 'inbound-rtp'
-      );
+      const inboundRtp = Array.from((stats as any).values()).find(
+        (report: any) => report.type === 'inbound-rtp'
+      ) as any;
 
       if (inboundRtp) {
         const rtt = inboundRtp.currentRoundTripTime

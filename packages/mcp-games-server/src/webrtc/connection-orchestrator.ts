@@ -114,8 +114,8 @@ export class WebRTCConnectionOrchestrator extends EventEmitter {
       this.setupSignalingHandlers();
 
       // Initialize ICE manager
-      if (this.peerConnectionManager.peerConnection) {
-        this.iceManager = createICEManager(this.peerConnectionManager.peerConnection as any);
+      if (this.peerConnectionManager.peerConnectionInstance) {
+        this.iceManager = createICEManager(this.peerConnectionManager.peerConnectionInstance as any);
         this.iceManager.startMonitoring();
         this.setupICEHandlers();
       }
@@ -233,8 +233,8 @@ export class WebRTCConnectionOrchestrator extends EventEmitter {
       connectionDuration: Date.now() - this.startTime,
       iceDiagnostics: this.iceManager?.getDiagnostics() || null,
       dataChannelsOpen: this.peerConnectionManager
-        .dataChannels?.size || 0,
-      audioTracksActive: this.peerConnectionManager.audioTracks?.length || 0,
+        .activeDataChannels?.size || 0,
+      audioTracksActive: this.peerConnectionManager.activeAudioTracks?.length || 0,
       timestamp: Date.now(),
     };
   }
