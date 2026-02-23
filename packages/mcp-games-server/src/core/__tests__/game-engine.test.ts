@@ -1,7 +1,7 @@
-import { GameEngine } from '../game-engine.js';
+import { GameEngine, GameAction } from '../game-engine.js';
 import { ContextEngine } from '../context-engine.js';
 import { StateManager, InMemoryStateStore } from '../state-manager.js';
-import { GameDefinition, Action } from '@omnigents/shared';
+import { GameDefinition } from '@omnigents/shared';
 
 describe('GameEngine', () => {
     let engine: GameEngine;
@@ -22,7 +22,7 @@ describe('GameEngine', () => {
                     title: 'Start Scene',
                     narrative: 'You start here.',
                     choices: [
-                        { id: 'c1', text: 'Go forward' }
+                        { id: 'c1', text: 'Go forward', targetScene: 'end' }
                     ]
                 },
                 {
@@ -46,7 +46,7 @@ describe('GameEngine', () => {
 
     it('should throw error when unknown action is taken', async () => {
         const { session } = await engine.startGame(mockGame, 'player-1', 'trace-id');
-        const invalidAction: Action = { type: 'choice', choiceId: 'unknown' };
+        const invalidAction: GameAction = { type: 'choice', choiceId: 'unknown' };
 
         await expect(
             engine.executeAction(mockGame, session.id, invalidAction, 'trace-id')
@@ -55,7 +55,7 @@ describe('GameEngine', () => {
 
     it('should make a choice successfully', async () => {
         const { session } = await engine.startGame(mockGame, 'player-1', 'trace-id');
-        const action: Action = { type: 'choice', choiceId: 'c1' };
+        const action: GameAction = { type: 'choice', choiceId: 'c1' };
 
         const result = await engine.executeAction(mockGame, session.id, action, 'trace-id');
 

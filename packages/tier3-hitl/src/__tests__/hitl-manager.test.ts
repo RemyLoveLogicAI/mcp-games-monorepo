@@ -21,6 +21,7 @@ describe('HitlManager', () => {
             priority: 'HIGH',
             situation: 'Test failure',
             aiAnalysis: 'Needs human intervention',
+            aiRecommendation: 'Retry the action',
             options: [
                 { id: 1, label: 'Retry', description: 'Retry action', action: 'RETRY' }
             ]
@@ -38,6 +39,7 @@ describe('HitlManager', () => {
             priority: 'MEDIUM',
             situation: 'Timeout',
             aiAnalysis: 'Service timed out',
+            aiRecommendation: 'Restart the service',
             options: [
                 { id: 1, label: 'Restart', description: 'Restart service', action: 'RESTART' }
             ]
