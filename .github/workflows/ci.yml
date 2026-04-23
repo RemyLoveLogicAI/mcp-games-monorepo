@@ -2,9 +2,9 @@ name: CI Pipeline
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
 
 jobs:
   build_and_test:
@@ -44,8 +44,11 @@ jobs:
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Lint
+        run: pnpm turbo lint
+
       - name: Build
         run: pnpm turbo build
-        
+
       - name: Test
         run: pnpm turbo test

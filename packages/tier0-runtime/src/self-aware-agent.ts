@@ -3,11 +3,10 @@
 // The foundation layer that observes itself and emits telemetry
 // ═══════════════════════════════════════════════════════════════════════════
 
-import { 
-  AgentState, 
-  MemoryUsage, 
-  CpuUsage, 
-  ErrorInfo,
+import {
+  AgentState,
+  MemoryUsage,
+  CpuUsage,
   OperationTelemetry,
   OperationContext,
   Tier0HealthEvent,
@@ -78,15 +77,17 @@ export class SelfAwareAgent {
 
       return result;
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       const duration = performance.now() - startTime;
       telemetry.endTime = Date.now();
       telemetry.duration = duration;
       telemetry.status = 'failure';
+
+      const isErr = error instanceof Error;
       telemetry.error = {
-        message: error.message || 'Unknown error',
-        code: error.code || 'UNKNOWN',
-        stack: error.stack,
+        message: isErr ? error.message : String(error),
+        code: isErr ? (error as { code?: string }).code || 'UNKNOWN' : 'UNKNOWN',
+        stack: isErr ? error.stack : undefined,
         recoverable: this.isRecoverable(error),
         timestamp: Date.now(),
       };
@@ -307,17 +308,19 @@ export class SelfAwareAgent {
     this.bufferTelemetry(telemetry);
   }
 
-  private isRecoverable(error: any): boolean {
+  private isRecoverable(error: unknown): boolean {
+    if (!error || typeof error !== 'object') return false;
+
     // Network errors are usually recoverable
-    if (error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT') {
+    if ('code' in error && (error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT')) {
       return true;
     }
     // Rate limits are recoverable
-    if (error.status === 429) {
+    if ('status' in error && error.status === 429) {
       return true;
     }
     // Server errors might be recoverable
-    if (error.status >= 500 && error.status < 600) {
+    if ('status' in error && typeof error.status === 'number' && error.status >= 500 && error.status < 600) {
       return true;
     }
     // Default to not recoverable

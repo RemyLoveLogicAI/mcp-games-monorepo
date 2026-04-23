@@ -95,9 +95,9 @@ export class TelemetryBus {
     // Ensure consumer group exists
     try {
       await this.redis.xgroup('CREATE', stream, this.consumerGroup, '0', 'MKSTREAM');
-    } catch (err: any) {
+    } catch (err: unknown) {
       // Group already exists - that's fine
-      if (!err.message.includes('BUSYGROUP')) {
+      if (!(err instanceof Error) || !err.message.includes('BUSYGROUP')) {
         console.error(`[TelemetryBus] Error creating consumer group for ${stream}:`, err);
       }
     }
@@ -120,7 +120,7 @@ export class TelemetryBus {
         ) as [string, [string, string[]][]][] | null;
 
         if (results) {
-          for (const [streamName, messages] of results) {
+          for (const [, messages] of results) {
             for (const [id, fields] of messages) {
               await this.processMessage(stream, id, fields as unknown as string[]);
             }
@@ -169,7 +169,7 @@ export class TelemetryBus {
   async getRecent<T>(stream: TelemetryStream, count = 100): Promise<TelemetryEvent<T>[]> {
     const results = await this.redis.xrevrange(stream, '+', '-', 'COUNT', count);
 
-    return results.map(([id, fields]) => {
+    return results.map(([_id, fields]) => {
       const event: TelemetryEvent<T> = JSON.parse(fields[1]);
       return event;
     });
@@ -184,12 +184,12 @@ export class TelemetryBus {
     lastEntry: string | null;
   }> {
     const info = await this.redis.xinfo('STREAM', stream);
-    const infoMap = this.parseXInfo(info as unknown as any[]);
+    const infoMap = this.parseXInfo(info as unknown as unknown[]);
 
     return {
       length: infoMap.get('length') as number || 0,
-      firstEntry: infoMap.get('first-entry')?.[0] || null,
-      lastEntry: infoMap.get('last-entry')?.[0] || null,
+      firstEntry: (infoMap.get('first-entry') as unknown[] | undefined)?.[0] as string || null,
+      lastEntry: (infoMap.get('last-entry') as unknown[] | undefined)?.[0] as string || null,
     };
   }
 
@@ -242,10 +242,10 @@ export class TelemetryBus {
     await this.redis.quit();
   }
 
-  private parseXInfo(info: any[]): Map<string, any> {
+  private parseXInfo(info: unknown[]): Map<string, unknown> {
     const map = new Map();
     for (let i = 0; i < info.length; i += 2) {
-      map.set(info[i], info[i + 1]);
+      map.set(info[i] as string, info[i + 1]);
     }
     return map;
   }
