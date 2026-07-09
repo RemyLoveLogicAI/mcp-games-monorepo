@@ -265,9 +265,9 @@ export function getTelemetryBus(): TelemetryBus {
   return instance;
 }
 
-export const telemetryBus = new Proxy({} as TelemetryBus, {
-  get(_target, prop) {
+export const telemetryBus: TelemetryBus = new Proxy({} as TelemetryBus, {
+  get(_target: TelemetryBus, prop: string | symbol) {
     const bus = getTelemetryBus();
-    return (bus as any)[prop];
+    return bus[prop as keyof TelemetryBus] as unknown;
   },
 });
