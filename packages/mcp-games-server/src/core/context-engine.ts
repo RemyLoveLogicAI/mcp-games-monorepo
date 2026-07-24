@@ -164,7 +164,8 @@ export class ContextEngine {
 
             this.contextCache.set(cacheKey, contextData);
 
-            // Evict oldest entries while the cache exceeds its maximum size.
+            // Evict the earliest-inserted entries (Map preserves insertion order)
+            // while the cache exceeds its maximum size.
             while (this.contextCache.size > this.cacheMaxSize) {
                 const oldestKey = this.contextCache.keys().next().value;
                 if (oldestKey !== undefined) {

@@ -24,6 +24,12 @@ export interface ActionResult {
     clarificationNeeded?: boolean;
 }
 
+// HTML escape map – defined once at module level to avoid repeated object allocation.
+const HTML_ESCAPE_MAP: Record<string, string> = {
+    '<': '&lt;', '>': '&gt;', '&': '&amp;',
+    '"': '&quot;', "'": '&#39;', '`': '&#96;',
+};
+
 // ═══════════════════════════════════════════════════════════
 // GAME ENGINE
 // ═══════════════════════════════════════════════════════════
@@ -325,13 +331,7 @@ export class GameEngine {
             // No matching choice found – present the available options clearly.
             // Sanitize the user's raw input before embedding it in the narrative
             // to prevent injection when downstream renderers process special characters.
-            const safeInput = input.replace(/[<>&"'`]/g, (ch) => {
-                const map: Record<string, string> = {
-                    '<': '&lt;', '>': '&gt;', '&': '&amp;',
-                    '"': '&quot;', "'": '&#39;', '`': '&#96;',
-                };
-                return map[ch] ?? ch;
-            });
+            const safeInput = input.replace(/[<>&"'`]/g, (ch) => HTML_ESCAPE_MAP[ch] ?? ch);
             const choiceList = currentScene.choices
                 .map((c, i) => `${i + 1}. ${c.text}`)
                 .join('\n');
