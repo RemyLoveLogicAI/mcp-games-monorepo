@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "mcp_games",
+  "project_id": "0b7864ea-7c79-40aa-a77d-e22804a0b643"
+}
