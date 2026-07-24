@@ -1,6 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  output: 'export',
+  distDir: 'dist',
+  trailingSlash: true,
   transpilePackages: ['shared-types', 'mcp-sdk', 'story-engine'],
   env: {
     MCP_CONNECTOR_URL: process.env.MCP_CONNECTOR_URL || 'http://localhost:3001',
