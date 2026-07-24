@@ -164,11 +164,13 @@ export class ContextEngine {
 
             this.contextCache.set(cacheKey, contextData);
 
-            // Evict oldest entries when the cache exceeds its maximum size.
-            if (this.contextCache.size > this.cacheMaxSize) {
+            // Evict oldest entries while the cache exceeds its maximum size.
+            while (this.contextCache.size > this.cacheMaxSize) {
                 const oldestKey = this.contextCache.keys().next().value;
                 if (oldestKey !== undefined) {
                     this.contextCache.delete(oldestKey);
+                } else {
+                    break;
                 }
             }
 

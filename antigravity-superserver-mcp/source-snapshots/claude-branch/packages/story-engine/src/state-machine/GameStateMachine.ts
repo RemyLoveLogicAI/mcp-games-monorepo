@@ -777,13 +777,18 @@ export class GameStateMachine {
       case '!=':
         return leftValue !== rightValue;
       case '>':
-        return (leftValue as number) > (rightValue as number);
       case '<':
-        return (leftValue as number) < (rightValue as number);
       case '>=':
-        return (leftValue as number) >= (rightValue as number);
-      case '<=':
-        return (leftValue as number) <= (rightValue as number);
+      case '<=': {
+        // Numeric comparisons require both operands to be actual numbers.
+        if (typeof leftValue !== 'number' || typeof rightValue !== 'number') {
+          return false;
+        }
+        if (operator === '>') return leftValue > rightValue;
+        if (operator === '<') return leftValue < rightValue;
+        if (operator === '>=') return leftValue >= rightValue;
+        return leftValue <= rightValue;
+      }
       default:
         return false;
     }

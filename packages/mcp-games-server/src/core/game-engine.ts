@@ -323,11 +323,20 @@ export class GameEngine {
 
         if (!matchedChoice) {
             // No matching choice found – present the available options clearly.
+            // Sanitize the user's raw input before embedding it in the narrative
+            // to prevent injection when downstream renderers process special characters.
+            const safeInput = input.replace(/[<>&"'`]/g, (ch) => {
+                const map: Record<string, string> = {
+                    '<': '&lt;', '>': '&gt;', '&': '&amp;',
+                    '"': '&quot;', "'": '&#39;', '`': '&#96;',
+                };
+                return map[ch] ?? ch;
+            });
             const choiceList = currentScene.choices
                 .map((c, i) => `${i + 1}. ${c.text}`)
                 .join('\n');
             const narrative =
-                `I didn't quite understand "${input}". Please choose one of the available options:\n\n${choiceList}`;
+                `I didn't quite understand "${safeInput}". Please choose one of the available options:\n\n${choiceList}`;
 
             telemetry.emit('game:freeform:no_match', {
                 sessionId: session.id,
