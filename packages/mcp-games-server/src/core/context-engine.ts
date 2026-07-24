@@ -166,13 +166,9 @@ export class ContextEngine {
 
             // Evict the earliest-inserted entries (Map preserves insertion order)
             // while the cache exceeds its maximum size.
+            // `keys().next().value` is always defined here because size > 0.
             while (this.contextCache.size > this.cacheMaxSize) {
-                const oldestKey = this.contextCache.keys().next().value;
-                if (oldestKey !== undefined) {
-                    this.contextCache.delete(oldestKey);
-                } else {
-                    break;
-                }
+                this.contextCache.delete(this.contextCache.keys().next().value as string);
             }
 
             if (this.agent) {
