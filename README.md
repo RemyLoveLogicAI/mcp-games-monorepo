@@ -1,151 +1,147 @@
-# 🚀 Unrestricted OmniAgents
+# MCP Games
 
-**Four-Tier Self-Healing AI Agent Platform**
+**A playable AI-agent adventure and the super server behind it.**
 
-> By the time a human sees an issue, the system has already attempted 15-20 automated recovery actions.
+The flagship website is the front door: it ships with a complete embedded
+adventure, a command terminal, progression, rewards, sound, and an optional
+live link to the MCP connector. The wider monorepo supplies the CYOA engine,
+MCP stdio server, context contracts, realtime-mesh planning, Telegram and
+voice surfaces, and the four-tier self-healing agent platform.
 
-## Vision
-
-Unrestricted OmniAgents are AI agents that operate without arbitrary guardrails—not because they lack safety, but because safety emerges from **observable, recoverable, governable** architectures rather than pre-emptive restrictions.
-
-## Architecture
-
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│  TIER 3: HUMAN-IN-THE-LOOP                                         │
-│  • Absolute intervention only                                       │
-│  • Push notification + simple buttons                              │
-└─────────────────────────────────────────────────────────────────────┘
-                            ▲ Escalation (rare)
-┌─────────────────────────────────────────────────────────────────────┐
-│  TIER 2: SYSTEMS CHECK                                             │
-│  • Human-glanceable dashboard                                      │
-│  • Coordinated multi-service recovery                              │
-└─────────────────────────────────────────────────────────────────────┘
-                            ▲ Aggregated status
-┌─────────────────────────────────────────────────────────────────────┐
-│  TIER 1: AI WATCHDOG                                               │
-│  • Reads all Tier 0 verbose telemetry                             │
-│  • Primary healing: 5+ recovery strategies per failure            │
-└─────────────────────────────────────────────────────────────────────┘
-                            ▲ Verbose telemetry
-┌─────────────────────────────────────────────────────────────────────┐
-│  TIER 0: AGENT RUNTIME (Self-Aware)                                │
-│  • The actual operating OmniAgent                                  │
-│  • Self-monitors: memory, CPU, latency, errors                    │
-└─────────────────────────────────────────────────────────────────────┘
-```
-
-## First Product: MCP Games
-
-Context-aware Choose Your Own Adventure games that inject real-time player context (calendar, weather, notes) into narrative experiences.
-
-### Features
-- 🎮 CYOA game engine with YAML-defined games
-- 🎤 Voice narration via PersonaPlex
-- 💬 Telegram bot interface
-- 🔄 Real-time context injection from MCPs
-
-## Quick Start
+## Play it now
 
 ### Prerequisites
-- Node.js 20+
-- pnpm 8+
-- Redis
-- Docker (optional)
 
-### Installation
+- Node.js 22.13 or newer
+- pnpm 8 or newer
 
 ```bash
-# Clone the repo
-git clone https://github.com/omnigents/omnigents.git
-cd omnigents
-
-# Install dependencies
 pnpm install
-
-# Copy environment template
 cp .env.example .env
-
-# Start development
 pnpm dev
 ```
 
-### Docker Development
+`pnpm dev` starts the two browser-facing services:
+
+- Flagship website: the URL printed by the site dev server
+- MCP connector: <http://localhost:3001>
+
+The game remains fully playable if the connector is unavailable. Set
+`NEXT_PUBLIC_MCP_CONNECTOR_URL=http://localhost:3001` before building the site
+to enable its **Connect Super Server** control.
+
+Useful focused commands:
 
 ```bash
-# Start all services
-docker-compose -f docker-compose.dev.yml up -d
-
-# View logs
-docker-compose logs -f
-
-# Stop services
-docker-compose down
+pnpm dev:site       # flagship only
+pnpm dev:connector  # browser-to-MCP boundary only
+pnpm start:mcp      # MCP Games server over stdio
+pnpm build:flagship # site + connector + MCP server
+pnpm dev:all        # every development task in the monorepo
 ```
 
-## Project Structure
+## How the surfaces fit
 
-```
-omnigents/
-├── packages/
-│   ├── shared/                # Shared types & telemetry bus
-│   ├── tier0-runtime/         # Self-aware agent wrapper
-│   ├── tier1-watchdog/        # AI-powered recovery
-│   ├── tier2-systems-check/   # Dashboard & coordination
-│   ├── tier3-hitl/            # Human escalation
-│   ├── mcp-games-server/      # Game engine
-│   └── telegram-bot/          # Telegram interface
-├── games/                     # YAML game definitions
-├── docs/                      # Documentation
-└── docker-compose.yml         # Production stack
+```text
+Player
+  └─ apps/mcp-games-site       playable flagship + NOVA terminal
+       └─ apps/mcp-connector   browser-safe REST boundary
+            └─ MCP transport bridge (tracked; not implemented yet)
+                 └─ packages/mcp-games-server
+                      ├─ health_check
+                      ├─ load_game / start_game / make_choice
+                      └─ plan_realtime_mesh
 ```
 
-## Development
+Today the website performs a real connector health handshake. Its embedded
+game is intentionally resilient and does not depend on infrastructure. The
+MCP Games server is a functional stdio MCP server for AI agents and desktop
+clients. Bridging the connector to that stdio server is the next integration
+milestone; the connector's query and context routes currently return explicit
+placeholder responses.
 
-### Build all packages
+## MCP server
+
+Build and register the stdio entry point with an MCP client:
+
 ```bash
-pnpm build
+pnpm --dir packages/mcp-games-server build
+pnpm start:mcp
 ```
 
-### Run tests
+The server exposes:
+
+- `health_check`
+- `load_game`
+- `start_game`
+- `make_choice`
+- `plan_realtime_mesh`
+
+The included game definition lives at
+`games/morning-decision.yaml`. Server parser sample data lives at
+`packages/mcp-games-server/data/sample.yaml`.
+
+## Environment contract
+
+Copy `.env.example` for local development. The important browser boundary is:
+
+| Variable | Consumer | Purpose |
+| --- | --- | --- |
+| `NEXT_PUBLIC_MCP_CONNECTOR_URL` | Flagship site | Connector base URL embedded at build time |
+| `MCP_CONNECTOR_PORT` or `PORT` | MCP connector | REST listener; defaults to `3001` |
+| `CORS_ORIGINS` or `MCP_CONNECTOR_ALLOWED_ORIGINS` | MCP connector | Comma-separated browser origins |
+| `REDIS_URL` | Server packages | Cache and telemetry bus |
+| `SUPABASE_URL`, `SUPABASE_KEY` | MCP Games server | Optional persistence adapter |
+
+Never put secrets in `NEXT_PUBLIC_*` variables.
+
+## Project map
+
+```text
+apps/
+  mcp-games-site/       flagship playable website
+  mcp-connector/        REST integration boundary
+  cyoa-engine/          earlier Next.js game surface
+  omnigentic/           agent application
+packages/
+  mcp-games-server/     MCP stdio game server
+  story-engine/         narrative engine
+  mcp-sdk/              MCP client primitives
+  telegram-bot/         Telegram surface
+  tier0-runtime/        self-aware runtime
+  tier1-watchdog/       automated recovery
+  tier2-systems-check/  coordination and status
+  tier3-hitl/           human escalation
+games/                  YAML game definitions
+docs/                   audio, WebRTC, and security notes
+```
+
+## Verification
+
 ```bash
+pnpm build:flagship
+pnpm typecheck
 pnpm test
-```
-
-### Lint
-```bash
 pnpm lint
 ```
 
-### Type check
-```bash
-pnpm typecheck
-```
+Some older packages do not yet define every lifecycle task, so Turborepo may
+report that no task exists for those workspaces. The flagship build command is
+the fastest integration gate for the primary product path.
 
-## Sprint 1 Goals (35 days)
+## Platform philosophy
 
-- [x] Monorepo setup
-- [ ] Tier 0: Self-aware runtime
-- [ ] Tier 1: AI Watchdog
-- [ ] Tier 2: Systems Check
-- [ ] Tier 3: HITL Manager
-- [ ] MCP Games engine
-- [ ] "The Morning Decision" game
-- [ ] Telegram bot
-- [ ] PersonaPlex voice integration
+The four-tier agent platform favors observable, recoverable, governable
+automation:
 
-## Philosophy
+1. Tier 0 runs and self-monitors the agent.
+2. Tier 1 applies automated recovery strategies.
+3. Tier 2 coordinates services and exposes system status.
+4. Tier 3 escalates decisions that truly need a human.
 
-1. **Agents monitor agents** — Human oversight is governance, not babysitting
-2. **Recover first, escalate later** — 15-20 automated attempts before human sees it
-3. **Observable by default** — Every operation emits telemetry
-4. **Context is power** — Real-time context makes experiences personal
+See `unrestricted-omnigents-manifesto.md` and
+`four-tier-observability.md` for the deeper architecture.
 
 ## License
 
 MIT © LoveLogicAI LLC
-
----
-
-**Built with 🤖 by Unrestricted OmniAgents**

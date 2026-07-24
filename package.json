@@ -2,13 +2,21 @@
   "name": "mcp-games-monorepo",
   "version": "1.0.0",
   "private": true,
-  "description": "Prime AI Agents MCP Games - CYOA engine with semantic MCP querying",
+  "description": "MCP Games super server and playable AI-agent flagship experience",
   "scripts": {
     "build": "turbo run build",
-    "dev": "turbo run dev",
+    "build:flagship": "turbo run build --filter=@omnigents/mcp-games-site --filter=mcp-connector --filter=@omnigents/mcp-games-server",
+    "dev": "turbo run dev --filter=@omnigents/mcp-games-site --filter=mcp-connector",
+    "dev:all": "turbo run dev",
+    "dev:site": "pnpm --dir apps/mcp-games-site dev",
+    "dev:connector": "pnpm --dir apps/mcp-connector dev",
+    "start:site": "pnpm --dir apps/mcp-games-site start",
+    "start:connector": "pnpm --dir apps/mcp-connector start",
+    "start:mcp": "pnpm --dir packages/mcp-games-server start",
     "lint": "turbo run lint",
     "lint:security": "eslint --config .eslintrc.security.json \"**/*.{js,jsx,ts,tsx}\"",
     "test": "turbo run test",
+    "typecheck": "turbo run typecheck",
     "clean": "turbo run clean && rm -rf node_modules",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\""
   },
@@ -28,7 +36,7 @@
   },
   "packageManager": "pnpm@8.12.0",
   "engines": {
-    "node": ">=18.0.0",
+    "node": ">=22.13.0",
     "pnpm": ">=8.0.0"
   }
 }
