@@ -20,6 +20,8 @@ export interface ActionResult {
     narrative: string;
     contextInjected: Record<string, any>;
     effectsApplied: string[];
+    /** Set when the input was ambiguous and clarification is needed. */
+    clarificationNeeded?: boolean;
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -197,6 +199,10 @@ export class GameEngine {
                 };
             }
 
+            if (action.type === 'freeform' && action.freeformInput !== undefined) {
+                return await this.handleFreeformInput(game, session, currentScene, action.freeformInput, traceId);
+            }
+
             throw new Error(`Unsupported action type: ${action.type}`);
         } catch (error) {
             const duration = Date.now() - start;
@@ -267,6 +273,173 @@ export class GameEngine {
         }
 
         return applied;
+    }
+
+    // ───────────────────────────────────────────────────────
+    // FREEFORM / AMBIGUOUS INPUT HANDLING  (Issue #12)
+    // ───────────────────────────────────────────────────────
+
+    /**
+     * Handle a freeform text input from the player.
+     * Attempts to match the text to an available choice; if ambiguous or
+     * unrecognised, returns the current scene with a clarification prompt
+     * instead of throwing an error.
+     */
+    private async handleFreeformInput(
+        game: GameDefinition,
+        session: Session,
+        currentScene: Scene,
+        input: string,
+        traceId: string
+    ): Promise<ActionResult> {
+        const normalised = input.trim().toLowerCase();
+
+        // Classify the input to detect ambiguous responses early.
+        const intentType = this.classifyFreeformIntent(normalised);
+
+        if (intentType !== 'clear') {
+            // Return the current scene with a clarification prompt so the
+            // client can ask the player to be more specific.
+            const clarificationNarrative = this.buildClarificationNarrative(intentType, currentScene);
+
+            telemetry.emit('game:freeform:clarification_needed', {
+                sessionId: session.id,
+                intentType,
+                traceId,
+            });
+
+            return {
+                session,
+                scene: { ...currentScene, narrative: clarificationNarrative },
+                narrative: clarificationNarrative,
+                contextInjected: {},
+                effectsApplied: [],
+                clarificationNeeded: true,
+            };
+        }
+
+        // Try to match the freeform text to one of the available choices.
+        const matchedChoice = this.matchFreeformToChoice(normalised, currentScene.choices);
+
+        if (!matchedChoice) {
+            // No matching choice found – present the available options clearly.
+            const choiceList = currentScene.choices
+                .map((c, i) => `${i + 1}. ${c.text}`)
+                .join('\n');
+            const narrative =
+                `I didn't quite understand "${input}". Please choose one of the available options:\n\n${choiceList}`;
+
+            telemetry.emit('game:freeform:no_match', {
+                sessionId: session.id,
+                input,
+                traceId,
+            });
+
+            return {
+                session,
+                scene: { ...currentScene, narrative },
+                narrative,
+                contextInjected: {},
+                effectsApplied: [],
+                clarificationNeeded: true,
+            };
+        }
+
+        // A clear match was found – delegate to the existing choice path.
+        return this.executeAction(game, session.id, { type: 'choice', choiceId: matchedChoice.id }, traceId);
+    }
+
+    /**
+     * Classify the player's intent to detect ambiguous or uncertain phrasing.
+     */
+    private classifyFreeformIntent(
+        input: string
+    ): 'uncertain' | 'conditional' | 'deflection' | 'request_info' | 'clear' {
+        const UNCERTAINTY_PATTERNS = [
+            'maybe', 'perhaps', 'possibly', 'might', 'could be',
+            "i'm not sure", "don't know", 'uncertain', 'not sure',
+        ];
+        const CONDITIONAL_PATTERNS = [
+            'depends', 'it depends', 'that depends', 'only if', 'depends on',
+        ];
+        const DEFLECTION_PATTERNS = [
+            'whatever', "doesn't matter", "i don't care", 'your choice',
+        ];
+        const REQUEST_INFO_PATTERNS = [
+            'tell me more', 'explain', 'what do you mean', 'clarify',
+            'can you elaborate', 'more info', 'what is',
+        ];
+
+        if (UNCERTAINTY_PATTERNS.some(p => input.includes(p))) return 'uncertain';
+        if (CONDITIONAL_PATTERNS.some(p => input.includes(p))) return 'conditional';
+        if (DEFLECTION_PATTERNS.some(p => input.includes(p))) return 'deflection';
+        if (REQUEST_INFO_PATTERNS.some(p => input.includes(p))) return 'request_info';
+        return 'clear';
+    }
+
+    /**
+     * Build a context-appropriate clarification message based on the detected intent.
+     */
+    private buildClarificationNarrative(
+        intentType: 'uncertain' | 'conditional' | 'deflection' | 'request_info',
+        scene: Scene
+    ): string {
+        const choiceList = scene.choices.map((c, i) => `${i + 1}. ${c.text}`).join('\n');
+
+        switch (intentType) {
+            case 'uncertain':
+                return (
+                    `I understand you're uncertain. Here are your options:\n\n${choiceList}\n\n` +
+                    `Take your time – which of these feels right?`
+                );
+            case 'conditional':
+                return (
+                    `It sounds like your choice depends on certain factors. ` +
+                    `Here are the options available to you:\n\n${choiceList}\n\n` +
+                    `Which would you like to explore?`
+                );
+            case 'deflection':
+                return (
+                    `I'll let you choose! Here are your options:\n\n${choiceList}\n\n` +
+                    `Which would you prefer?`
+                );
+            case 'request_info':
+                return (
+                    `Happy to help clarify! Your current options are:\n\n${choiceList}\n\n` +
+                    `Would you like more details about any of these before deciding?`
+                );
+        }
+    }
+
+    /**
+     * Attempt to match freeform text to an available choice by checking whether
+     * the normalised input contains the normalised choice text or vice-versa.
+     */
+    private matchFreeformToChoice(
+        normalisedInput: string,
+        choices: Choice[]
+    ): Choice | undefined {
+        for (const choice of choices) {
+            const normalisedChoice = choice.text.toLowerCase().trim();
+            if (
+                normalisedInput === normalisedChoice ||
+                normalisedInput.includes(normalisedChoice) ||
+                normalisedChoice.includes(normalisedInput)
+            ) {
+                return choice;
+            }
+        }
+
+        // Secondary pass: check if the input contains a numeric index (e.g. "1", "2").
+        const indexMatch = normalisedInput.match(/^\s*(\d+)\s*$/);
+        if (indexMatch) {
+            const idx = parseInt(indexMatch[1], 10) - 1;
+            if (idx >= 0 && idx < choices.length) {
+                return choices[idx];
+            }
+        }
+
+        return undefined;
     }
 
     // ───────────────────────────────────────────────────────

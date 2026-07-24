@@ -115,6 +115,7 @@ export class ContextEngine {
     private agent: SelfAwareAgent | null;
     private contextCache = new Map<string, ContextData>();
     private cacheMaxAge = 5 * 60 * 1000;
+    private cacheMaxSize = 500; // Maximum number of entries to prevent unbounded growth
 
     constructor(agent?: SelfAwareAgent) {
         this.agent = agent || null;
@@ -162,6 +163,14 @@ export class ContextEngine {
             };
 
             this.contextCache.set(cacheKey, contextData);
+
+            // Evict oldest entries when the cache exceeds its maximum size.
+            if (this.contextCache.size > this.cacheMaxSize) {
+                const oldestKey = this.contextCache.keys().next().value;
+                if (oldestKey !== undefined) {
+                    this.contextCache.delete(oldestKey);
+                }
+            }
 
             if (this.agent) {
                 telemetry.emit(`context:fetch:${sourceName}:success`, {
