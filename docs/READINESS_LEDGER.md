@@ -45,8 +45,10 @@ turn the current solid baseline into the complete super-server vision.
 - Live default-game load plus server `/health` and `/ready`: passed.
 - Container execution was not verified locally because the Colima Docker daemon
   was not running.
-- Root Git inspection remains unavailable because `.git` references a missing
-  worktree administration path. No destructive repair was attempted.
+- Root Git history was safely restored from the authoritative
+  `RemyLoveLogicAI/mcp-games-monorepo` origin. The work now lives on
+  `codex/mcp-games-flagship-readiness`, and the stale pointer remains available
+  as a local recovery artifact.
 
 ## Backlog
 
@@ -186,12 +188,3 @@ Acceptance criteria:
 - Offline mode is quiet and documented.
 - Shutdown is deterministic while Redis is unavailable.
 - Readiness behavior is explicitly defined.
-
-### P2 — Repair root worktree metadata
-
-Acceptance criteria:
-
-- Root `.git` points to an existing worktree administration directory.
-- `git status`, `git diff`, and branch discovery work.
-- All current uncommitted work is preserved.
-
