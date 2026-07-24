@@ -265,4 +265,21 @@ export function getTelemetryBus(): TelemetryBus {
   return instance;
 }
 
-export const telemetryBus = getTelemetryBus();
+export const telemetryBus: Pick<
+  TelemetryBus,
+  | 'emit'
+  | 'subscribe'
+  | 'getRecent'
+  | 'getStreamInfo'
+  | 'trimStream'
+  | 'cleanup'
+  | 'stop'
+> = {
+  emit: (...args) => getTelemetryBus().emit(...args),
+  subscribe: (...args) => getTelemetryBus().subscribe(...args),
+  getRecent: (...args) => getTelemetryBus().getRecent(...args),
+  getStreamInfo: (...args) => getTelemetryBus().getStreamInfo(...args),
+  trimStream: (...args) => getTelemetryBus().trimStream(...args),
+  cleanup: (...args) => getTelemetryBus().cleanup(...args),
+  stop: (...args) => getTelemetryBus().stop(...args),
+};

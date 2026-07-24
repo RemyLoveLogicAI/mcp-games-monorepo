@@ -5,11 +5,13 @@ import { GameDefinition } from '@omnigents/shared';
 
 describe('GameEngine', () => {
     let engine: GameEngine;
+    let stateManager: StateManager;
+    let contextEngine: ContextEngine;
     let mockGame: GameDefinition;
 
     beforeEach(() => {
-        const stateManager = new StateManager(new InMemoryStateStore());
-        const contextEngine = new ContextEngine();
+        stateManager = new StateManager(new InMemoryStateStore());
+        contextEngine = new ContextEngine();
         engine = new GameEngine(stateManager, contextEngine);
 
         mockGame = {
@@ -34,14 +36,16 @@ describe('GameEngine', () => {
                     title: 'Start Scene',
                     narrative: 'You start here.',
                     choices: [
-                        { id: 'c1', text: 'Go forward', targetScene: 'end' }
+                        {
+                            id: 'c1',
+                            text: 'Go forward',
+                            targetScene: 'end',
+                            effects: [
+                                { type: 'set', variable: 'mood', value: 'ready' },
+                                { type: 'increment', variable: 'energy', value: 10 }
+                            ]
+                        }
                     ]
-                },
-                end: {
-                    id: 'end',
-                    title: 'End Scene',
-                    narrative: 'You ended here.',
-                    choices: []
                 }
             }
         };
@@ -70,5 +74,75 @@ describe('GameEngine', () => {
         const result = await engine.executeAction(mockGame, session.id, action, 'trace-id');
 
         expect(result.scene.id).toBe('end');
+        expect(result.session.currentSceneId).toBe('end');
+        expect(result.session.completedAt).toBeDefined();
+        expect(result.session.variables).toMatchObject({ mood: 'ready', energy: 10 });
+        expect(result.effectsApplied).toEqual([
+            'set variable mood',
+            'increment variable energy'
+        ]);
+    });
+
+    it('enforces all supported choice condition operators', async () => {
+        mockGame.scenes.start.choices[0].conditions = [
+            { variable: 'energy', operator: 'gte', value: 10 },
+            { variable: 'mood', operator: 'ne', value: 'blocked' }
+        ];
+        const { session } = await engine.startGame(mockGame, 'player-1', 'trace-id');
+        session.variables = { energy: 10, mood: 'ready' };
+        await stateManager.saveSession(session, 'trace-id');
+
+        await expect(
+            engine.executeAction(
+                mockGame,
+                session.id,
+                { type: 'choice', choiceId: 'c1' },
+                'trace-id'
+            )
+        ).resolves.toMatchObject({ scene: { id: 'end' } });
+    });
+
+    it('injects structured scene context and renders narrative placeholders', async () => {
+        contextEngine.registerSource({
+            name: 'weather',
+            async fetch() {
+                return { forecast: ['Clear and bright'] };
+            }
+        });
+        mockGame.contextPermissions = { weather: true };
+        mockGame.scenes.start.narrative = 'Outside: {{weather_description}}';
+        mockGame.scenes.start.contextQuery = [{
+            contextType: 'weather',
+            query: 'current conditions',
+            targetVariable: 'weather_description',
+            transform: 'summarize',
+            fallbackValue: 'Weather unavailable'
+        }];
+
+        const { session, scene } = await engine.startGame(
+            mockGame,
+            'player-1',
+            'trace-id'
+        );
+
+        expect(scene.narrative).toBe('Outside: {"forecast":["Clear and bright"]}');
+        expect(session.variables.weather_description).toBe(
+            '{"forecast":["Clear and bright"]}'
+        );
+    });
+
+    it('uses a context fallback when no adapter is registered', async () => {
+        mockGame.contextPermissions = { weather: true };
+        mockGame.scenes.start.narrative = 'Outside: {{weather_description}}';
+        mockGame.scenes.start.contextQuery = [{
+            contextType: 'weather',
+            query: 'current conditions',
+            targetVariable: 'weather_description',
+            transform: 'summarize',
+            fallbackValue: 'Weather unavailable'
+        }];
+
+        const { scene } = await engine.startGame(mockGame, 'player-1', 'trace-id');
+        expect(scene.narrative).toBe('Outside: Weather unavailable');
     });
 });

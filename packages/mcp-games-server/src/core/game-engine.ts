@@ -50,6 +50,7 @@ export class GameEngine {
         try {
             const session = await this.stateStore.createSession(game.id, playerId, traceId);
             session.currentSceneId = game.startScene;
+            session.contextPermissions = { ...game.contextPermissions };
 
             const scene = game.scenes[session.currentSceneId];
             if (!scene) {
@@ -71,7 +72,13 @@ export class GameEngine {
             }
 
             telemetry.emit('game:started', { gameId: game.id, playerId, traceId, duration });
-            return { session, scene };
+            return {
+                session,
+                scene: {
+                    ...scene,
+                    narrative: this.getNarrativeWithContext(scene, contextInjected)
+                }
+            };
         } catch (error) {
             const duration = Date.now() - start;
             if (this.agent) {
@@ -110,7 +117,10 @@ export class GameEngine {
             }
 
             // Validate action
-            if (action.type === 'choice' && action.choiceId) {
+            if (action.type === 'choice') {
+                if (!action.choiceId) {
+                    throw new Error('A choiceId is required for choice actions');
+                }
                 const choice = currentScene.choices.find(c => c.id === action.choiceId);
                 if (!choice) {
                     throw new Error(`Choice '${action.choiceId}' not valid for scene '${session.currentSceneId}'`);
@@ -145,6 +155,7 @@ export class GameEngine {
                     // Check if it's an ending
                     if (game.endings && game.endings[nextSceneId]) {
                         const ending = game.endings[nextSceneId];
+                        session.currentSceneId = nextSceneId;
                         session.completedAt = new Date().toISOString();
                         await this.stateStore.saveSession(session, traceId);
 
@@ -190,8 +201,11 @@ export class GameEngine {
 
                 return {
                     session,
-                    scene: nextScene,
-                    narrative: nextScene.narrative,
+                    scene: {
+                        ...nextScene,
+                        narrative: this.getNarrativeWithContext(nextScene, contextInjected)
+                    },
+                    narrative: this.getNarrativeWithContext(nextScene, contextInjected),
                     contextInjected,
                     effectsApplied
                 };
@@ -228,29 +242,21 @@ export class GameEngine {
 
         for (const effect of effects) {
             try {
-                if (effect.type === 'variable_set') {
-                    await this.stateStore.setVariable(
-                        session.id,
-                        effect.key,
-                        effect.value,
-                        traceId
-                    );
-                    applied.push(`set variable ${effect.key}`);
-                } else if (effect.type === 'health_damage') {
-                    await this.stateStore.updateHealthScore(
-                        session.id,
-                        -effect.amount,
-                        traceId
-                    );
-                    applied.push(`health damage -${effect.amount}`);
-                } else if (effect.type === 'health_heal') {
-                    await this.stateStore.updateHealthScore(
-                        session.id,
-                        effect.amount,
-                        traceId
-                    );
-                    applied.push(`health heal +${effect.amount}`);
+                const currentValue = session.variables[effect.variable];
+                if (effect.type === 'set') {
+                    session.variables[effect.variable] = effect.value;
+                } else if (effect.type === 'increment') {
+                    session.variables[effect.variable] =
+                        (Number(currentValue) || 0) + Number(effect.value);
+                } else if (effect.type === 'decrement') {
+                    session.variables[effect.variable] =
+                        (Number(currentValue) || 0) - Number(effect.value);
+                } else if (effect.type === 'toggle') {
+                    session.variables[effect.variable] = !Boolean(currentValue);
+                } else {
+                    throw new Error(`Unsupported effect type '${effect.type}'`);
                 }
+                applied.push(`${effect.type} variable ${effect.variable}`);
 
                 telemetry.emit('effect:applied', {
                     effectType: effect.type,
@@ -263,6 +269,7 @@ export class GameEngine {
                     error: error instanceof Error ? error.message : 'Unknown error',
                     traceId
                 });
+                throw error;
             }
         }
 
@@ -282,16 +289,16 @@ export class GameEngine {
         }
 
         return conditions.every(condition => {
-            if (condition.type === 'variable_equals') {
-                return variables[condition.key] === condition.value;
+            const actual = variables[condition.variable];
+            switch (condition.operator) {
+                case 'eq': return actual === condition.value;
+                case 'ne': return actual !== condition.value;
+                case 'gt': return Number(actual) > Number(condition.value);
+                case 'lt': return Number(actual) < Number(condition.value);
+                case 'gte': return Number(actual) >= Number(condition.value);
+                case 'lte': return Number(actual) <= Number(condition.value);
+                default: return false;
             }
-            if (condition.type === 'variable_gt') {
-                return (variables[condition.key] as number) > condition.value;
-            }
-            if (condition.type === 'variable_lt') {
-                return (variables[condition.key] as number) < condition.value;
-            }
-            return true;
         });
     }
 
@@ -305,26 +312,32 @@ export class GameEngine {
         traceId: string
     ): Promise<Record<string, any>> {
         try {
-            // Parse scene for context requests
-            // Format: @calendar:today, @notes:search, etc.
-            const contextRequests: Array<{ source: string; query: string }> = [];
+            const permittedRequests = (scene.contextQuery ?? []).filter(
+                request => session.contextPermissions[request.contextType] === true
+            );
 
-            const narrativeMatch = scene.narrative.match(/@(\w+):([^\s,\.]+)/g);
-            if (narrativeMatch) {
-                for (const match of narrativeMatch) {
-                    const [source, query] = match.slice(1).split(':');
-                    if (source && query) {
-                        contextRequests.push({ source, query });
-                    }
-                }
-            }
-
-            if (contextRequests.length === 0) {
+            if (permittedRequests.length === 0) {
                 return {};
             }
 
-            const context = await this.contextEngine.injectContext(contextRequests, traceId);
-            return context.sources || {};
+            const context = await this.contextEngine.injectContext(
+                permittedRequests.map(request => ({
+                    source: request.contextType,
+                    query: request.query
+                })),
+                traceId
+            );
+
+            const injected: Record<string, unknown> = {};
+            for (const request of permittedRequests) {
+                const result = context.sources?.[request.contextType];
+                injected[request.targetVariable] = this.transformContextResult(
+                    result,
+                    request.transform,
+                    request.fallbackValue
+                );
+            }
+            return injected;
         } catch (error) {
             telemetry.emit('context:injection:failed', {
                 sceneId: scene.id,
@@ -340,13 +353,47 @@ export class GameEngine {
     // ───────────────────────────────────────────────────────
 
     getNarrativeWithContext(scene: Scene, context: Record<string, any>): string {
-        let narrative = scene.narrative;
+        return scene.narrative.replace(/\{\{(\w+)\}\}/g, (placeholder, key) => {
+            const value = context[key];
+            if (value === undefined || value === null || value === '') {
+                return placeholder;
+            }
+            return typeof value === 'string' ? value : JSON.stringify(value);
+        });
+    }
 
-        // Replace context placeholders with actual values
-        for (const [key, value] of Object.entries(context)) {
-            narrative = narrative.replace(`@${key}`, JSON.stringify(value));
+    private transformContextResult(
+        result: unknown,
+        transform: 'verbatim' | 'summarize' | 'extract_names' | 'extract_dates',
+        fallbackValue: string
+    ): string {
+        if (result === undefined || result === null) {
+            return fallbackValue;
         }
 
-        return narrative;
+        if (typeof result === 'object') {
+            const values = Object.values(result as Record<string, unknown>);
+            const hasUsefulCollection = values.some(
+                value => Array.isArray(value) && value.length > 0
+            );
+            if (!hasUsefulCollection) {
+                return fallbackValue;
+            }
+        }
+
+        if (typeof result === 'string') {
+            return result.trim() || fallbackValue;
+        }
+
+        if (transform === 'extract_names' || transform === 'extract_dates') {
+            const candidate = (result as Record<string, unknown>)[
+                transform === 'extract_names' ? 'names' : 'dates'
+            ];
+            return Array.isArray(candidate) && candidate.length > 0
+                ? candidate.join(', ')
+                : fallbackValue;
+        }
+
+        return JSON.stringify(result);
     }
 }

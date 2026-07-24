@@ -1,5 +1,5 @@
 import { Session } from '@omnigents/shared';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'node:crypto';
 import { telemetry } from '../observability/index.js';
 import { SelfAwareAgent } from '@omnigents/tier0-runtime';
 
@@ -10,7 +10,7 @@ import { SelfAwareAgent } from '@omnigents/tier0-runtime';
 export interface StateStore {
     saveSession(session: Session): Promise<void>;
     getSession(sessionId: string): Promise<Session | null>;
-    createSession(gameId: string, playerId: string): Promise<Session>;
+    createSession(gameId: string, playerId: string, traceId: string): Promise<Session>;
     logHistoryEntry(params: {
         sessionId: string;
         sceneId: string;
@@ -52,18 +52,19 @@ export class InMemoryStateStore implements StateStore {
         return this.sessions.get(sessionId) || null;
     }
 
-    async createSession(gameId: string, playerId: string): Promise<Session> {
+    async createSession(gameId: string, playerId: string, traceId: string): Promise<Session> {
         const session: Session = {
-            id: uuidv4(),
+            id: randomUUID(),
             gameId,
             playerId,
             currentSceneId: 'start',
             variables: {},
             contextPermissions: {},
+            healthScore: 100,
             voiceMode: false,
             startedAt: new Date().toISOString(),
             lastActivityAt: new Date().toISOString(),
-            traceId: 'todo-trace-id'
+            traceId
         };
         this.sessions.set(session.id, session);
         this.history.set(session.id, []);
@@ -113,7 +114,7 @@ export class StateManager {
     async createSession(gameId: string, playerId: string, traceId: string): Promise<Session> {
         const start = Date.now();
         try {
-            const session = await this.store.createSession(gameId, playerId);
+            const session = await this.store.createSession(gameId, playerId, traceId);
             const duration = Date.now() - start;
 
             if (this.agent) {
@@ -239,10 +240,10 @@ export class StateManager {
         const session = await this.getSession(sessionId, traceId);
         if (!session) throw new Error(`Session not found: ${sessionId}`);
 
-        const oldHealth = session.voiceMode ? 100 : 100; // Default to 100 if not set
+        const oldHealth = session.healthScore;
         const newHealth = Math.max(0, Math.min(100, oldHealth + delta));
 
-        session.voiceMode = newHealth === oldHealth; // Placeholder for health_score field
+        session.healthScore = newHealth;
         session.lastActivityAt = new Date().toISOString();
 
         await this.saveSession(session, traceId);

@@ -2,7 +2,7 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { Session } from '@omnigents/shared';
 import { StateStore, InMemoryStateStore } from '../core/state-manager.js';
 import { telemetry } from '../observability/index.js';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'node:crypto';
 import { SelfAwareAgent } from '@omnigents/tier0-runtime';
 
 export class SupabaseStateStore implements StateStore {
@@ -24,6 +24,7 @@ export class SupabaseStateStore implements StateStore {
                 current_scene_id: session.currentSceneId,
                 variables: session.variables,
                 context_permissions: session.contextPermissions,
+                health_score: session.healthScore,
                 voice_mode: session.voiceMode,
                 started_at: session.startedAt,
                 last_activity_at: session.lastActivityAt,
@@ -60,6 +61,7 @@ export class SupabaseStateStore implements StateStore {
             currentSceneId: data.current_scene_id,
             variables: data.variables,
             contextPermissions: data.context_permissions,
+            healthScore: data.health_score ?? 100,
             voiceMode: data.voice_mode,
             startedAt: data.started_at,
             lastActivityAt: data.last_activity_at,
@@ -68,18 +70,19 @@ export class SupabaseStateStore implements StateStore {
         };
     }
 
-    async createSession(gameId: string, playerId: string): Promise<Session> {
+    async createSession(gameId: string, playerId: string, traceId: string): Promise<Session> {
         const session: Session = {
-            id: uuidv4(),
+            id: randomUUID(),
             gameId,
             playerId,
             currentSceneId: 'start',
             variables: {},
             contextPermissions: {},
+            healthScore: 100,
             voiceMode: false,
             startedAt: new Date().toISOString(),
             lastActivityAt: new Date().toISOString(),
-            traceId: 'todo-trace-id'
+            traceId
         };
         await this.saveSession(session);
         return session;
@@ -100,7 +103,7 @@ export class SupabaseStateStore implements StateStore {
         durationMs?: number;
     }): Promise<void> {
         const { error } = await this.client.from('session_history').insert({
-            id: uuidv4(),
+            id: randomUUID(),
             session_id: params.sessionId,
             scene_id: params.sceneId,
             choice_id: params.choiceId,
@@ -149,7 +152,7 @@ export class SupabaseStateStore implements StateStore {
         traceId: string;
     }): Promise<void> {
         const { error } = await this.client.from('recovery_log').insert({
-            id: uuidv4(),
+            id: randomUUID(),
             tier: params.tier,
             agent_id: params.agentId,
             failure_type: params.failureType,
@@ -176,7 +179,7 @@ export class SupabaseStateStore implements StateStore {
         expiresAt: Date;
         traceId: string;
     }): Promise<string> {
-        const requestId = uuidv4();
+        const requestId = randomUUID();
 
         const { error } = await this.client.from('hitl_requests').insert({
             id: requestId,
@@ -239,7 +242,7 @@ export class SupabaseStateStore implements StateStore {
         this.client
             .from('tier0_telemetry')
             .insert({
-                id: uuidv4(),
+                id: randomUUID(),
                 agent_id: params.agentId,
                 service: params.service,
                 operation_type: params.operationType,

@@ -313,6 +313,7 @@ export interface Session {
   currentSceneId: string;
   variables: Record<string, unknown>;
   contextPermissions: ContextPermissions;
+  healthScore: number;
   voiceMode: boolean;
   voicePersona?: string;
   startedAt: string;

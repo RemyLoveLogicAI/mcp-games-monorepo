@@ -1,4 +1,4 @@
-import { telemetryBus, TelemetryEvent } from '@omnigents/shared';
+import { telemetryBus } from '@omnigents/shared';
 import { logger } from '@omnigents/shared';
 import { trace, context } from '@opentelemetry/api';
 
@@ -22,9 +22,13 @@ export class Tier1Emitter {
             ...payload
         }, event);
 
+        if (process.env.NODE_ENV === 'test') {
+            return;
+        }
+
         // 2. Emit to shared bus (Inter-process)
         // We strictly type the stream based on shared types, defaulting to tier0:telemetry for general events
-        telemetryBus.emit('tier0:telemetry', {
+        void telemetryBus.emit('tier0:telemetry', {
             service: this.serviceName,
             event,
             level,
@@ -32,6 +36,13 @@ export class Tier1Emitter {
             requestId,
             payload,
             health: { status: 'OK' } // Default, override if needed
+        }).catch((error) => {
+            logger.warn({
+                err: error,
+                event,
+                traceId,
+                requestId,
+            }, 'Telemetry bus emit failed');
         });
     }
 }

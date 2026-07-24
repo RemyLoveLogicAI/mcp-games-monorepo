@@ -120,7 +120,7 @@ export class StoryEngine {
         return scene?.id;
       }),
       state.currentSceneId,
-    ]).size;
+    ].filter((sceneId): sceneId is string => Boolean(sceneId))).size;
 
     return (visitedScenes / totalScenes) * 100;
   }
@@ -206,7 +206,10 @@ export class StoryEngine {
           break;
         case 'append':
           if (Array.isArray(newVariables[effect.variable])) {
-            (newVariables[effect.variable] as unknown[]).push(effect.value);
+            newVariables[effect.variable] = [
+              ...(newVariables[effect.variable] as unknown[]),
+              effect.value,
+            ];
           } else {
             newVariables[effect.variable] = [effect.value];
           }

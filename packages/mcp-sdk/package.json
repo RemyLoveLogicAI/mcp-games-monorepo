@@ -4,7 +4,7 @@
   "private": true,
   "description": "MCP client library for semantic querying",
   "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "types": "./src/index.ts",
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",

@@ -4,3 +4,4 @@ export * from './state-manager.js';
 export * from './game-engine.js';
 export * from '../adapters/supabase.js';
 export * from './context-engine.js';
+export * from '../realtime-mesh/index.js';
