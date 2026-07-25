@@ -10,21 +10,30 @@ turn the current solid baseline into the complete super-server vision.
 
 - The MCP Games website is the default flagship surface and is privately
   deployed at <https://mcp-games-command-center.lovelogic-ai.chatgpt.site>.
-- The Morning Decision is playable through tactile choices, number keys, and
-  the NOVA command console.
-- The flagship site can attach to the connector through
-  `NEXT_PUBLIC_MCP_CONNECTOR_URL` and remains playable with its embedded agent
-  core when the remote transport is absent.
-- The default root development command starts the flagship and connector
-  together.
+- The flagship is a time-aware execution surface with one visual/keyboard
+  command bar, explicit verified/unavailable signals, and no fictional
+  biofeedback or XP.
+- A focus action creates a real `.ics` artifact. Successful device and MCP
+  actions create source-labelled receipts, and repeated successful actions can
+  become device-local shortcuts.
+- The site attaches through `NEXT_PUBLIC_MCP_CONNECTOR_URL`; server actions stay
+  unavailable when the transport is absent rather than falling back to
+  simulated results.
+- The default root development command builds the MCP Games server, then starts
+  the flagship and connector together.
+- The connector uses the official MCP client over stdio, discovers tools, and
+  exposes health, load, start, choice, and realtime-mesh APIs.
+- Connector responses carry a structured response-only receipt with tool,
+  status, timestamps, duration, and summarized payload/result.
 - The MCP server auto-loads `games/morning-decision.yaml`; `start_game` no longer
   requires a manual `load_game`.
 - MCP responses include game and scene IDs, variables, effects, injected
   context, and completion state.
 - The server keeps MCP on stdio and exposes independent HTTP `/health` and
   `/ready` probes.
-- The connector has validated health, readiness, connection, disconnection,
-  query, context, CORS, payload-limit, and not-found contracts.
+- The connector has validated health, capability discovery, connection,
+  disconnection, load, real start/choice turn, mesh planning, timeout, upstream
+  failure, query, context, CORS, payload-limit, and not-found contracts.
 - The game graph validates as 24 reachable, terminating scenes with more than
   ten endings.
 - Runtime effects, conditions, context permissions, fallback rendering,
@@ -36,10 +45,12 @@ turn the current solid baseline into the complete super-server vision.
 ## Verification snapshot
 
 - `pnpm build:flagship`: 7/7 tasks passed.
+- Root `pnpm typecheck`: 13/13 tasks passed.
+- Root `pnpm test`: 19/19 tasks passed.
 - MCP server unit tests: 34/34 passed.
 - MCP game-engine focused tests: 11/11 passed.
 - Story engine build and immutable playthrough test: passed.
-- Connector HTTP integration tests: 3/3 passed.
+- Connector HTTP and stdio integration tests: 11/11 passed.
 - Flagship rendered-page test, build, and lint: passed.
 - `docker-compose config --quiet`: passed.
 - Live default-game load plus server `/health` and `/ready`: passed.
@@ -52,19 +63,20 @@ turn the current solid baseline into the complete super-server vision.
 
 ## Backlog
 
-### P0 — Implement the real connector-to-MCP transport bridge
+### P0 — Deploy and bind the production execution plane
 
-The browser connector currently exposes correct HTTP contracts, but its
-underlying MCP client still returns placeholder query data.
+The Sites frontend is deployed, but there is no authenticated production
+connector endpoint. The public surface therefore reports the Games transport as
+unavailable.
 
 Acceptance criteria:
 
-- The connector launches or connects to the stdio MCP server.
-- MCP initialization and capability discovery complete before readiness.
-- `load_game`, `start_game`, `make_choice`, and mesh planning are callable
-  through the browser-safe API.
-- Disconnect cleans up child transport and process resources.
-- Tests cover a real game turn, timeout, disconnect, and upstream failure.
+- A TLS connector endpoint is deployed and bound into the site build.
+- CORS allows only the flagship origin and requests carry authenticated actor
+  identity.
+- Liveness and execution readiness are distinct.
+- A production canary completes one real start/choice turn.
+- Rollback is documented and exercised.
 
 ### P0 — Wire production calendar and weather context adapters
 
@@ -77,6 +89,31 @@ Acceptance criteria:
 - Game context permissions are enforced at the adapter boundary.
 - Timeout, denial, and provider errors use authored fallbacks.
 - Tests cover success and fallback without exposing raw placeholders.
+
+### P1 — Add approved real-world actions to game choices
+
+Current choices execute real MCP state transitions, but the game schema does
+not yet invoke calendar, notification, container, or task tools.
+
+Acceptance criteria:
+
+- Choice actions use typed, allowlisted descriptors.
+- Preview and approval policy are explicit and idempotent.
+- Receipts distinguish internal state mutation from external side effects.
+- Failure and rollback states are visible.
+- At least one flagship choice completes a useful external action.
+
+### P1 — Build the durable receipt and optimization flywheel
+
+The site’s current receipt history and repeated-action shortcut are
+device-local convenience features, not a tamper-evident automation engine.
+
+Acceptance criteria:
+
+- Receipts are append-only and tamper-evident.
+- Pattern recommendations cite the executions that support them.
+- Users can promote, scope, revoke, and audit automation rights.
+- Autonomous execution has approval, rollback, and permission-boundary tests.
 
 ### P0 — Provide a supported Node WebRTC runtime
 

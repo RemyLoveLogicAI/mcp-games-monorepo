@@ -29,9 +29,10 @@ test("server-renders the MCP Games flagship", async () => {
 
   const html = await response.text();
   assert.match(html, /<title>MCP Games/);
-  assert.match(html, /YOUR WORLD/);
-  assert.match(html, /IS THE/);
-  assert.match(html, /NOVA/);
-  assert.match(html, /The day is waiting for your command/);
+  assert.match(html, /Make the next/);
+  assert.match(html, /move/);
+  assert.match(html, /Only what we can verify/);
+  assert.match(html, /Start a server-backed run/);
+  assert.doesNotMatch(html, /NOVA|Serotonin|BIOFEEDBACK|XP/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/);
 });

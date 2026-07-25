@@ -5,8 +5,9 @@ import './globals.css'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'MCP Games - CYOA Engine',
-  description: 'Choose Your Own Adventure powered by semantic MCP querying',
+  title: 'MCP Games',
+  description:
+    'The canonical MCP Games execution surface for real server-backed decisions and action receipts.',
 }
 
 export default function RootLayout({

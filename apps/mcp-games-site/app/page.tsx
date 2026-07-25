@@ -1,619 +1,940 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import {
+  FormEvent,
+  KeyboardEvent as ReactKeyboardEvent,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
-type Stats = {
-  serotonin: number;
-  energy: number;
-  focus: number;
-  xp: number;
+type ConnectionState =
+  | "not-configured"
+  | "checking"
+  | "connected"
+  | "unavailable";
+
+type GameChoice = {
+  id: string;
+  label?: string;
+  text?: string;
+  description?: string;
 };
 
-type Choice = {
-  label: string;
-  hint: string;
-  next: string;
-  delta: Partial<Stats>;
-  reward: string;
+type GameState = {
+  sessionId: string;
+  gameTitle?: string;
+  sceneTitle?: string;
+  narrative?: string;
+  choices: GameChoice[];
+  completed?: boolean;
+  completedAt?: string | null;
 };
 
-type Scene = {
-  eyebrow: string;
+type Receipt = {
+  id: string;
+  action: "focus" | "start" | "choice" | "copy";
   title: string;
-  narrative: string;
-  signal: string;
-  choices: Choice[];
+  detail: string;
+  source: string;
+  time: string;
+  createdAt: string;
+  minutes?: number;
 };
 
-const scenes: Record<string, Scene> = {
-  wake: {
-    eyebrow: "07:15 // THE FIRST LIGHT",
-    title: "The day is waiting for your command.",
-    narrative:
-      "Rain is needling the glass. Your calendar has one hard edge at 09:00, but this next minute belongs entirely to you. NOVA has already mapped three openings.",
-    signal: "Weather + calendar context synthesized",
-    choices: [
-      {
-        label: "Launch upright",
-        hint: "Claim momentum before your brain negotiates.",
-        next: "momentum",
-        delta: { serotonin: 8, energy: 16, focus: 6, xp: 120 },
-        reward: "MOMENTUM CHAIN",
-      },
-      {
-        label: "Take the quiet route",
-        hint: "Breathe, stretch, and choose the day deliberately.",
-        next: "clarity",
-        delta: { serotonin: 14, energy: 7, focus: 13, xp: 130 },
-        reward: "CALM CORE",
-      },
-      {
-        label: "Steal nine more minutes",
-        hint: "Strategic retreat. Consequences included.",
-        next: "recovery",
-        delta: { serotonin: 5, energy: 11, focus: -6, xp: 90 },
-        reward: "SOFT RESET",
-      },
-    ],
-  },
-  momentum: {
-    eyebrow: "07:18 // VELOCITY",
-    title: "You are moving before doubt can load.",
-    narrative:
-      "Feet hit the floor. The room snaps into focus. NOVA marks two high-value micro-missions: one feeds the body, the other breaks the day’s hardest task into something bite-sized.",
-    signal: "Energy spike detected · streak available",
-    choices: [
-      {
-        label: "Build the impossible breakfast",
-        hint: "Color, crunch, protein, and one absurdly good song.",
-        next: "threshold",
-        delta: { serotonin: 16, energy: 15, focus: 4, xp: 180 },
-        reward: "FULL-SPECTRUM FUEL",
-      },
-      {
-        label: "Delete the first obstacle",
-        hint: "Give the hardest task five fearless minutes.",
-        next: "threshold",
-        delta: { serotonin: 9, energy: 5, focus: 20, xp: 210 },
-        reward: "BOSS DAMAGE ×2",
-      },
-    ],
-  },
-  clarity: {
-    eyebrow: "07:19 // SIGNAL FOUND",
-    title: "The noise drops out. Something true remains.",
-    narrative:
-      "Three slow breaths create a pocket of impossible quiet. NOVA offers no productivity sermon—only two small doors back into your own life.",
-    signal: "Cognitive noise −31% · agency restored",
-    choices: [
-      {
-        label: "Write one honest sentence",
-        hint: "Name what would make today feel real.",
-        next: "threshold",
-        delta: { serotonin: 15, energy: 4, focus: 18, xp: 210 },
-        reward: "TRUE NORTH",
-      },
-      {
-        label: "Step into actual daylight",
-        hint: "Two minutes outside. No phone. Let biology cook.",
-        next: "threshold",
-        delta: { serotonin: 22, energy: 14, focus: 8, xp: 220 },
-        reward: "DAWN BUFF",
-      },
-    ],
-  },
-  recovery: {
-    eyebrow: "07:24 // TIME DEBT",
-    title: "You wake twice. The second time has teeth.",
-    narrative:
-      "The room is warmer, the clock less forgiving. NOVA refuses to shame you. Recovery is still a move—if you make it on purpose.",
-    signal: "Schedule compression detected · shame protocol blocked",
-    choices: [
-      {
-        label: "Execute the clean recovery",
-        hint: "Water, light, clothes, go. No emotional tax.",
-        next: "threshold",
-        delta: { serotonin: 12, energy: 12, focus: 16, xp: 200 },
-        reward: "NO-SHAME COMBO",
-      },
-      {
-        label: "Cancel one fake emergency",
-        hint: "Protect ten minutes by refusing manufactured urgency.",
-        next: "threshold",
-        delta: { serotonin: 18, energy: 8, focus: 12, xp: 230 },
-        reward: "BOUNDARY FIELD",
-      },
-    ],
-  },
-  threshold: {
-    eyebrow: "08:02 // THE THRESHOLD",
-    title: "Your first real boss has entered the map.",
-    narrative:
-      "A message arrives: the 09:00 has moved up. Old you would react. Current you has resources, a streak, and an AI agent with a suspicious appetite for elegant defiance.",
-    signal: "Calendar mutation detected · response window 04:59",
-    choices: [
-      {
-        label: "Counter with a better plan",
-        hint: "NOVA drafts the smallest credible win.",
-        next: "victory",
-        delta: { serotonin: 18, energy: -4, focus: 19, xp: 320 },
-        reward: "REALITY PATCHED",
-      },
-      {
-        label: "Call an ally into the mission",
-        hint: "Turn solitary stress into shared momentum.",
-        next: "victory",
-        delta: { serotonin: 24, energy: 3, focus: 8, xp: 340 },
-        reward: "CO-OP UNLOCKED",
-      },
-      {
-        label: "Refuse the false quest",
-        hint: "Some bosses disappear when you stop feeding them.",
-        next: "victory",
-        delta: { serotonin: 20, energy: 9, focus: 12, xp: 360 },
-        reward: "SOVEREIGN MODE",
-      },
-    ],
-  },
-  victory: {
-    eyebrow: "08:07 // RUN COMPLETE",
-    title: "You didn’t optimize the morning. You authored it.",
-    narrative:
-      "The city is still wet, the calendar is still real, and the day is no longer happening to you. NOVA commits the run to memory and opens a new seed for tomorrow.",
-    signal: "Ending unlocked · THE AUTHOR",
-    choices: [],
-  },
-};
+type JsonObject = Record<string, unknown>;
 
-const initialStats: Stats = { serotonin: 48, energy: 54, focus: 42, xp: 0 };
 const connectorUrl =
   process.env.NEXT_PUBLIC_MCP_CONNECTOR_URL?.replace(/\/$/, "") || "";
+const autonomousActionsConfigured =
+  process.env.NEXT_PUBLIC_MCP_AUTONOMY_ENABLED === "true";
+const localStartCommand = "pnpm build:flagship && pnpm dev";
+const receiptStorageKey = "mcp-games.execution-receipts.v1";
 
-function clamp(value: number) {
-  return Math.max(0, Math.min(100, value));
+function isObject(value: unknown): value is JsonObject {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function timeStamp() {
-  return new Date().toLocaleTimeString([], {
-    hour: "2-digit",
+function unwrapGamePayload(payload: unknown): JsonObject {
+  if (!isObject(payload)) return {};
+
+  for (const key of ["result", "data", "game", "session", "turn"]) {
+    const nested = payload[key];
+    if (isObject(nested)) {
+      if (isObject(nested.data)) return nested.data;
+      return nested;
+    }
+  }
+
+  return payload;
+}
+
+function normalizeGame(payload: unknown): GameState | null {
+  const value = unwrapGamePayload(payload);
+  if (typeof value.sessionId !== "string") return null;
+
+  return {
+    sessionId: value.sessionId,
+    gameTitle:
+      typeof value.gameTitle === "string" ? value.gameTitle : undefined,
+    sceneTitle:
+      typeof value.sceneTitle === "string" ? value.sceneTitle : undefined,
+    narrative: typeof value.narrative === "string" ? value.narrative : undefined,
+    choices: Array.isArray(value.choices)
+      ? value.choices.filter(
+          (choice): choice is GameChoice =>
+            isObject(choice) && typeof choice.id === "string",
+        )
+      : [],
+    completed: Boolean(value.completed),
+    completedAt:
+      typeof value.completedAt === "string" || value.completedAt === null
+        ? value.completedAt
+        : undefined,
+  };
+}
+
+function displayChoice(choice: GameChoice) {
+  return choice.label || choice.text || choice.id;
+}
+
+function localTimeLabel(date: Date) {
+  return new Intl.DateTimeFormat(undefined, {
+    hour: "numeric",
     minute: "2-digit",
-  });
+  }).format(date);
+}
+
+function receiptTime(date = new Date()) {
+  return new Intl.DateTimeFormat(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit",
+  }).format(date);
+}
+
+function toIcsDate(date: Date) {
+  return date
+    .toISOString()
+    .replace(/[-:]/g, "")
+    .replace(/\.\d{3}Z$/, "Z");
+}
+
+function safeIcsText(value: string) {
+  return value
+    .replace(/\\/g, "\\\\")
+    .replace(/\n/g, "\\n")
+    .replace(/,/g, "\\,")
+    .replace(/;/g, "\\;");
+}
+
+function getErrorMessage(payload: unknown, fallback: string) {
+  if (isObject(payload)) {
+    if (typeof payload.error === "string") return payload.error;
+    if (typeof payload.message === "string") return payload.message;
+  }
+  return fallback;
 }
 
 export default function Home() {
-  const [sceneId, setSceneId] = useState("wake");
-  const [stats, setStats] = useState(initialStats);
-  const [history, setHistory] = useState<string[]>([]);
-  const [terminal, setTerminal] = useState<string[]>([
-    "NOVA agent core online.",
-    "Story graph morning-decision-v1 mounted.",
-    "Type “help” or choose a mission.",
-  ]);
-  const [command, setCommand] = useState("");
-  const [connection, setConnection] = useState<
-    "local" | "checking" | "connected" | "unavailable"
-  >("local");
-  const [reward, setReward] = useState("");
-  const [soundOn, setSoundOn] = useState(true);
-  const terminalRef = useRef<HTMLDivElement>(null);
-  const scene = scenes[sceneId];
-  const level = Math.floor(stats.xp / 500) + 1;
-  const progress = useMemo(
-    () => Math.min(100, (history.length / 3) * 100),
-    [history.length],
+  const [now, setNow] = useState<Date | null>(null);
+  const [connection, setConnection] = useState<ConnectionState>(
+    connectorUrl ? "checking" : "not-configured",
   );
+  const [connectionNote, setConnectionNote] = useState(
+    connectorUrl
+      ? "Verifying the Games transport."
+      : "No connector URL was supplied to this build.",
+  );
+  const [autonomyCapability, setAutonomyCapability] = useState(false);
+  const [game, setGame] = useState<GameState | null>(null);
+  const [busyAction, setBusyAction] = useState<string | null>(null);
+  const [focusMinutes, setFocusMinutes] = useState(45);
+  const [receipts, setReceipts] = useState<Receipt[]>([]);
+  const [receiptsHydrated, setReceiptsHydrated] = useState(false);
+  const [command, setCommand] = useState("");
+  const [commandFeedback, setCommandFeedback] = useState(
+    "Try “focus 45”, “start”, or “status”.",
+  );
+  const commandRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    terminalRef.current?.scrollTo({
-      top: terminalRef.current.scrollHeight,
-      behavior: "smooth",
-    });
-  }, [terminal]);
+  const daypart = now
+    ? now.getHours() < 12
+      ? "morning"
+      : now.getHours() < 18
+        ? "afternoon"
+        : "evening"
+    : "afternoon";
 
-  useEffect(() => {
-    if (!reward) return;
-    const timer = window.setTimeout(() => setReward(""), 1800);
-    return () => window.clearTimeout(timer);
-  }, [reward]);
+  const dateLabel = now
+    ? new Intl.DateTimeFormat(undefined, {
+        weekday: "long",
+        month: "long",
+        day: "numeric",
+      }).format(now)
+    : "Reading local time…";
 
-  const log = (line: string) =>
-    setTerminal((current) => [...current.slice(-12), line]);
-
-  const playTone = () => {
-    if (!soundOn) return;
-    try {
-      const AudioContextClass =
-        window.AudioContext ||
-        (window as typeof window & { webkitAudioContext?: typeof AudioContext })
-          .webkitAudioContext;
-      if (!AudioContextClass) return;
-      const audio = new AudioContextClass();
-      [0, 0.08, 0.16].forEach((delay, index) => {
-        const oscillator = audio.createOscillator();
-        const gain = audio.createGain();
-        oscillator.type = "sine";
-        oscillator.frequency.value = [330, 440, 660][index];
-        gain.gain.setValueAtTime(0.0001, audio.currentTime + delay);
-        gain.gain.exponentialRampToValueAtTime(
-          0.08,
-          audio.currentTime + delay + 0.01,
-        );
-        gain.gain.exponentialRampToValueAtTime(
-          0.0001,
-          audio.currentTime + delay + 0.18,
-        );
-        oscillator.connect(gain).connect(audio.destination);
-        oscillator.start(audio.currentTime + delay);
-        oscillator.stop(audio.currentTime + delay + 0.2);
-      });
-    } catch {
-      // Sound is a progressive enhancement.
-    }
-  };
-
-  const choose = (index: number) => {
-    const choice = scene.choices[index];
-    if (!choice) {
-      log(`ERR no choice ${index + 1} in this scene.`);
-      return;
-    }
-    setStats((current) => ({
-      serotonin: clamp(current.serotonin + (choice.delta.serotonin || 0)),
-      energy: clamp(current.energy + (choice.delta.energy || 0)),
-      focus: clamp(current.focus + (choice.delta.focus || 0)),
-      xp: current.xp + (choice.delta.xp || 0),
-    }));
-    setHistory((current) => [...current, choice.label]);
-    setSceneId(choice.next);
-    setReward(choice.reward);
-    log(`> choose ${index + 1}`);
-    log(`NOVA: ${choice.reward} acquired. Story state committed.`);
-    playTone();
+  const addReceipt = (
+    action: Receipt["action"],
+    title: string,
+    detail: string,
+    source: string,
+    externalId?: string,
+    minutes?: number,
+  ) => {
+    const createdAt = new Date();
+    setReceipts((current) => [
+      {
+        id: externalId || crypto.randomUUID(),
+        action,
+        title,
+        detail,
+        source,
+        time: receiptTime(createdAt),
+        createdAt: createdAt.toISOString(),
+        minutes,
+      },
+      ...current,
+    ].slice(0, 40));
   };
 
   useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      const target = event.target as HTMLElement | null;
-      if (target?.tagName === "INPUT" || target?.tagName === "TEXTAREA") return;
-      const index = Number(event.key) - 1;
-      if (index >= 0 && index < scene.choices.length) choose(index);
+    const firstTick = window.setTimeout(() => setNow(new Date()), 0);
+    const clock = window.setInterval(() => setNow(new Date()), 30_000);
+    return () => {
+      window.clearTimeout(firstTick);
+      window.clearInterval(clock);
     };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  });
+  }, []);
 
-  const reset = () => {
-    setSceneId("wake");
-    setStats(initialStats);
-    setHistory([]);
-    setReward("NEW TIMELINE");
-    setTerminal([
-      "Timeline reset.",
-      "Story graph morning-decision-v1 mounted.",
-      "NOVA: Let’s make the next move count.",
-    ]);
-  };
+  useEffect(() => {
+    const hydrate = window.setTimeout(() => {
+      try {
+        const saved = window.localStorage.getItem(receiptStorageKey);
+        const parsed = saved ? (JSON.parse(saved) as unknown) : [];
+        if (Array.isArray(parsed)) {
+          setReceipts(
+            parsed.filter(
+              (receipt): receipt is Receipt =>
+                isObject(receipt) &&
+                typeof receipt.id === "string" &&
+                typeof receipt.action === "string" &&
+                typeof receipt.title === "string" &&
+                typeof receipt.detail === "string" &&
+                typeof receipt.source === "string" &&
+                typeof receipt.time === "string" &&
+                typeof receipt.createdAt === "string",
+            ),
+          );
+        }
+      } catch {
+        // Corrupt device history is ignored rather than treated as trusted input.
+      } finally {
+        setReceiptsHydrated(true);
+      }
+    }, 0);
+    return () => window.clearTimeout(hydrate);
+  }, []);
 
-  const connect = async () => {
+  useEffect(() => {
+    if (!receiptsHydrated) return;
+    window.localStorage.setItem(receiptStorageKey, JSON.stringify(receipts));
+  }, [receipts, receiptsHydrated]);
+
+  useEffect(() => {
+    const focusCommandBar = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (
+        event.key === "/" &&
+        target?.tagName !== "INPUT" &&
+        target?.tagName !== "TEXTAREA"
+      ) {
+        event.preventDefault();
+        commandRef.current?.focus();
+      }
+    };
+    window.addEventListener("keydown", focusCommandBar);
+    return () => window.removeEventListener("keydown", focusCommandBar);
+  }, []);
+
+  useEffect(() => {
+    if (!connectorUrl) return;
+
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 4_500);
+
+    void (async () => {
+      try {
+        const response = await fetch(`${connectorUrl}/api/games/health`, {
+          signal: controller.signal,
+        });
+        const payload = (await response.json().catch(() => ({}))) as unknown;
+
+        if (!response.ok) {
+          throw new Error(getErrorMessage(payload, "Games transport unavailable."));
+        }
+
+        const health = isObject(payload) ? payload : {};
+        const declaredStatus =
+          typeof health.status === "string" ? health.status.toLowerCase() : "";
+        const explicitlyUnavailable =
+          health.connected === false ||
+          ["unavailable", "offline", "error"].includes(declaredStatus);
+
+        if (explicitlyUnavailable) {
+          throw new Error(
+            getErrorMessage(payload, "Connector answered; Games server is offline."),
+          );
+        }
+
+        const capabilities = health.capabilities;
+        setAutonomyCapability(
+          (Array.isArray(capabilities) &&
+            capabilities.includes("autonomous_actions")) ||
+            (isObject(capabilities) &&
+              capabilities.autonomousActions === true),
+        );
+        setConnection("connected");
+        setConnectionNote("Games transport answered its health check.");
+      } catch (error) {
+        setConnection("unavailable");
+        setConnectionNote(
+          error instanceof Error && error.name !== "AbortError"
+            ? error.message
+            : "The connector did not answer within 4.5 seconds.",
+        );
+      } finally {
+        window.clearTimeout(timeout);
+      }
+    })();
+
+    return () => {
+      window.clearTimeout(timeout);
+      controller.abort();
+    };
+  }, []);
+
+  const startRun = async () => {
     if (!connectorUrl) {
-      setConnection("unavailable");
-      log("MCP remote URL is not configured; embedded NOVA core remains online.");
-      log("Set NEXT_PUBLIC_MCP_CONNECTOR_URL to attach the super server.");
+      setCommandFeedback(
+        "The web build needs NEXT_PUBLIC_MCP_CONNECTOR_URL before it can start a server run.",
+      );
       return;
     }
-    setConnection("checking");
-    log(`Pinging MCP connector…`);
+
+    setBusyAction("start");
+    setCommandFeedback("Asking the MCP Games server to start a session…");
+
     try {
-      const response = await fetch(`${connectorUrl}/health`, {
-        signal: AbortSignal.timeout(3500),
+      const response = await fetch(`${connectorUrl}/api/games/sessions`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ playerId: `web-${crypto.randomUUID()}` }),
       });
-      if (!response.ok) throw new Error("Health check failed");
-      const payload = (await response.json()) as { service?: string };
+      const payload = (await response.json().catch(() => ({}))) as unknown;
+      if (!response.ok) {
+        throw new Error(getErrorMessage(payload, "The session could not start."));
+      }
+
+      const nextGame = normalizeGame(payload);
+      if (!nextGame) {
+        throw new Error("The server response did not include a session ID.");
+      }
+
+      setGame(nextGame);
       setConnection("connected");
-      log(`LINKED ${payload.service || "mcp-connector"} · context bus ready.`);
-      setReward("SUPER SERVER LINKED");
-      playTone();
-    } catch {
+      setConnectionNote("Live session active through the Games transport.");
+      setCommandFeedback(`Session ${nextGame.sessionId} is active.`);
+
+      const outer = isObject(payload) ? payload : {};
+      const serverReceipt = isObject(outer.receipt) ? outer.receipt : {};
+      addReceipt(
+        "start",
+        "Live run started",
+        `${nextGame.gameTitle || "MCP game"} · session ${nextGame.sessionId}`,
+        "MCP · start_game",
+        typeof serverReceipt.id === "string" ? serverReceipt.id : undefined,
+      );
+    } catch (error) {
       setConnection("unavailable");
-      log("Remote connector did not answer; switched to embedded NOVA core.");
+      setConnectionNote(
+        error instanceof Error ? error.message : "The Games server did not answer.",
+      );
+      setCommandFeedback(
+        error instanceof Error ? error.message : "The Games server did not answer.",
+      );
+    } finally {
+      setBusyAction(null);
     }
+  };
+
+  const makeChoice = async (choice: GameChoice) => {
+    if (!connectorUrl || !game) return;
+
+    setBusyAction(choice.id);
+    setCommandFeedback(`Executing “${displayChoice(choice)}” through MCP…`);
+
+    try {
+      const response = await fetch(
+        `${connectorUrl}/api/games/sessions/${encodeURIComponent(game.sessionId)}/choices`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ choiceId: choice.id }),
+        },
+      );
+      const payload = (await response.json().catch(() => ({}))) as unknown;
+      if (!response.ok) {
+        throw new Error(getErrorMessage(payload, "The choice was not accepted."));
+      }
+
+      const nextGame = normalizeGame(payload);
+      if (!nextGame) {
+        throw new Error("The server response did not include the updated session.");
+      }
+
+      setGame(nextGame);
+      setCommandFeedback(
+        nextGame.completed
+          ? "The server marked this run complete."
+          : "Choice committed. The next scene came from the server.",
+      );
+
+      const outer = isObject(payload) ? payload : {};
+      const serverReceipt = isObject(outer.receipt) ? outer.receipt : {};
+      addReceipt(
+        "choice",
+        "Game move executed",
+        `${displayChoice(choice)} · session ${nextGame.sessionId}`,
+        "MCP · make_choice",
+        typeof serverReceipt.id === "string" ? serverReceipt.id : undefined,
+      );
+    } catch (error) {
+      setCommandFeedback(
+        error instanceof Error ? error.message : "The choice could not be executed.",
+      );
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
+  const downloadFocusBlock = (minutes = focusMinutes) => {
+    const createdAt = new Date();
+    const start = new Date(createdAt);
+    start.setSeconds(0, 0);
+    const remainder = start.getMinutes() % 15;
+    start.setMinutes(start.getMinutes() + (remainder === 0 ? 15 : 15 - remainder));
+    const end = new Date(start.getTime() + minutes * 60_000);
+    const uid = `${crypto.randomUUID()}@mcp.games`;
+    const title = `Protected focus · ${minutes} minutes`;
+    const calendar = [
+      "BEGIN:VCALENDAR",
+      "VERSION:2.0",
+      "PRODID:-//MCP Games//Execution Surface//EN",
+      "CALSCALE:GREGORIAN",
+      "METHOD:PUBLISH",
+      "BEGIN:VEVENT",
+      `UID:${uid}`,
+      `DTSTAMP:${toIcsDate(createdAt)}`,
+      `DTSTART:${toIcsDate(start)}`,
+      `DTEND:${toIcsDate(end)}`,
+      `SUMMARY:${safeIcsText(title)}`,
+      `DESCRIPTION:${safeIcsText("A focus block created from the MCP Games execution surface.")}`,
+      "STATUS:CONFIRMED",
+      "END:VEVENT",
+      "END:VCALENDAR",
+      "",
+    ].join("\r\n");
+
+    const blob = new Blob([calendar], { type: "text/calendar;charset=utf-8" });
+    const href = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = href;
+    anchor.download = `mcp-focus-${minutes}m.ics`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    window.setTimeout(() => URL.revokeObjectURL(href), 0);
+
+    addReceipt(
+      "focus",
+      "Calendar artifact created",
+      `${minutes} minutes · starts ${localTimeLabel(start)}`,
+      "This device · .ics download",
+      uid,
+      minutes,
+    );
+    setCommandFeedback(
+      `Downloaded a ${minutes}-minute calendar event starting ${localTimeLabel(start)}.`,
+    );
+  };
+
+  const copyLocalSetup = async () => {
+    try {
+      await navigator.clipboard.writeText(localStartCommand);
+      addReceipt(
+        "copy",
+        "Setup command copied",
+        localStartCommand,
+        "This device · clipboard",
+      );
+      setCommandFeedback("Local startup command copied.");
+    } catch {
+      setCommandFeedback(`Copy this from the repository root: ${localStartCommand}`);
+    }
+  };
+
+  const reportStatus = () => {
+    const label = {
+      connected: "Games transport connected.",
+      checking: "Games transport check in progress.",
+      unavailable: `Games transport unavailable. ${connectionNote}`,
+      "not-configured": "No connector URL is configured for this build.",
+    }[connection];
+    setCommandFeedback(label);
   };
 
   const runCommand = (event: FormEvent) => {
     event.preventDefault();
     const input = command.trim();
     if (!input) return;
-    log(`> ${input}`);
     setCommand("");
-    const [verb, arg] = input.toLowerCase().split(/\s+/);
 
-    if (verb === "help") {
-      log("Commands: status · scan · choose [1-3] · boost · connect · reset");
+    const [verb, rawValue] = input.toLowerCase().split(/\s+/);
+    if (verb === "focus") {
+      const requested = Number(rawValue || focusMinutes);
+      const minutes = Number.isFinite(requested)
+        ? Math.max(10, Math.min(180, Math.round(requested)))
+        : focusMinutes;
+      setFocusMinutes(minutes);
+      downloadFocusBlock(minutes);
+    } else if (verb === "start") {
+      void startRun();
     } else if (verb === "status") {
-      log(
-        `LVL ${level} · SERO ${stats.serotonin} · NRG ${stats.energy} · FCS ${stats.focus} · ${stats.xp} XP`,
-      );
-    } else if (verb === "scan") {
-      log(`NOVA: ${scene.signal}. ${scene.choices.length} viable paths found.`);
-    } else if (verb === "choose") {
-      choose(Number(arg) - 1);
-    } else if (verb === "boost") {
-      setStats((current) => ({
-        ...current,
-        serotonin: clamp(current.serotonin + 7),
-        energy: clamp(current.energy + 3),
-      }));
-      setReward("MICRO BOOST +7");
-      log("NOVA: shoulders down. unclench jaw. sip water. buff applied.");
-      playTone();
+      reportStatus();
     } else if (verb === "connect") {
-      void connect();
-    } else if (verb === "reset") {
-      reset();
+      window.location.reload();
+    } else if (verb === "clear") {
+      setReceipts([]);
+      setCommandFeedback("Activity cleared on this device.");
+    } else if (verb === "help") {
+      setCommandFeedback(
+        "Commands: focus [minutes] · start · status · connect · clear",
+      );
     } else {
-      log(`Unknown command “${verb}”. Type help.`);
+      setCommandFeedback(`“${verb}” is not a command. Try “help”.`);
     }
   };
 
-  return (
-    <main>
-      <div className="ambient ambient-a" />
-      <div className="ambient ambient-b" />
+  const commandKeyDown = (event: ReactKeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "Escape") event.currentTarget.blur();
+  };
 
+  const focusReceipts = receipts.filter(
+    (receipt) => receipt.action === "focus" && receipt.minutes,
+  );
+  const serverActions = receipts.filter(
+    (receipt) => receipt.action === "start" || receipt.action === "choice",
+  );
+  const recommendation =
+    focusReceipts.length >= 2
+      ? {
+          kind: "focus" as const,
+          minutes: focusReceipts[0].minutes || 45,
+          label: `Repeat a ${focusReceipts[0].minutes || 45}-minute focus block`,
+          reason: `${focusReceipts.length} successful focus artifacts on this device`,
+        }
+      : serverActions.length >= 2
+        ? {
+            kind: "server" as const,
+            label: "Start another live run",
+            reason: `${serverActions.length} successful MCP game actions on this device`,
+          }
+        : null;
+
+  return (
+    <main className={`site-shell daypart-${daypart}`}>
       <header className="topbar">
-        <a className="brand" href="#game" aria-label="MCP Games home">
-          <span className="brand-mark">M</span>
-          <span>MCP GAMES</span>
+        <a className="wordmark" href="#top" aria-label="MCP Games home">
+          <span className="wordmark-mark" aria-hidden="true">
+            m
+          </span>
+          <span>MCP Games</span>
         </a>
-        <div className="run-state">
-          <span className={`pulse ${connection}`} />
-          {connection === "connected"
-            ? "SUPER SERVER LINKED"
-            : connection === "checking"
-              ? "LINKING…"
-              : "NOVA LOCAL CORE"}
-        </div>
-        <button
-          className="icon-button"
-          onClick={() => setSoundOn((value) => !value)}
-          aria-label={soundOn ? "Mute game sounds" : "Enable game sounds"}
-          type="button"
-        >
-          {soundOn ? "SOUND ON" : "SOUND OFF"}
-        </button>
+        <p className="today">
+          {dateLabel}
+          {now ? <span>{localTimeLabel(now)}</span> : null}
+        </p>
+        <a className="text-link" href="#activity">
+          Activity
+        </a>
       </header>
 
-      <section className="hero" id="game">
-        <div className="hero-copy">
-          <div className="kicker">
-            <span>LIVE STORY PROTOCOL</span>
-            <span>RUN 001</span>
+      <div className="page" id="top">
+        <section className="hero" aria-labelledby="hero-title">
+          <div className="hero-intro">
+            <p className="eyebrow">A playable execution surface</p>
+            <h1 id="hero-title">
+              Make the next
+              <br />
+              move <em>real.</em>
+            </h1>
           </div>
-          <h1>
-            YOUR WORLD
-            <br />
-            IS THE <em>GAME.</em>
-          </h1>
-          <p>
-            A playable AI adventure that turns your signals, schedule, and
-            decisions into momentum you can actually feel.
-          </p>
-        </div>
-        <div className="level-card">
-          <span>PLAYER SIGNAL</span>
-          <strong>LVL {level.toString().padStart(2, "0")}</strong>
-          <div className="xp-track">
-            <i style={{ width: `${(stats.xp % 500) / 5}%` }} />
-          </div>
-          <small>{stats.xp % 500} / 500 XP TO NEXT SIGNAL</small>
-        </div>
-      </section>
-
-      <section className="game-shell">
-        <aside className="stats-panel">
-          <div className="panel-label">BIOFEEDBACK</div>
-          <Stat label="Serotonin" value={stats.serotonin} color="coral" />
-          <Stat label="Energy" value={stats.energy} color="lime" />
-          <Stat label="Focus" value={stats.focus} color="cyan" />
-
-          <div className="context-stack">
-            <div>
-              <span>WEATHER</span>
-              <strong>RAIN · 61°F</strong>
-            </div>
-            <div>
-              <span>NEXT EVENT</span>
-              <strong>09:00 · DEEP WORK</strong>
-            </div>
-            <div>
-              <span>STORY GRAPH</span>
-              <strong>MORNING-DECISION-V1</strong>
-            </div>
-          </div>
-
-          <button className="link-button" onClick={() => void connect()} type="button">
-            <span>↗</span>
-            {connection === "connected" ? "MCP BUS CONNECTED" : "CONNECT SUPER SERVER"}
-          </button>
-        </aside>
-
-        <article className="story-panel">
-          <div className="story-progress">
-            <span style={{ width: `${progress}%` }} />
-          </div>
-          <div className="scene-meta">
-            <span>{scene.eyebrow}</span>
-            <span>
-              NODE {Math.min(history.length + 1, 4).toString().padStart(2, "0")} / 04
-            </span>
-          </div>
-          <h2>{scene.title}</h2>
-          <p className="narrative">{scene.narrative}</p>
-          <div className="signal-line">
-            <span className="signal-icon">✦</span>
-            <div>
-              <small>NOVA // CONTEXT SYNTHESIS</small>
-              <p>{scene.signal}</p>
-            </div>
-          </div>
-
-          {scene.choices.length ? (
-            <div className="choices">
-              <div className="choice-label">
-                <span>CHOOSE YOUR NEXT MOVE</span>
-                <span>KEYS 1—{scene.choices.length}</span>
-              </div>
-              {scene.choices.map((choice, index) => (
-                <button
-                  className="choice"
-                  key={choice.label}
-                  onClick={() => choose(index)}
-                  type="button"
-                >
-                  <span className="choice-key">0{index + 1}</span>
-                  <span>
-                    <strong>{choice.label}</strong>
-                    <small>{choice.hint}</small>
-                  </span>
-                  <span className="choice-arrow">↗</span>
-                </button>
-              ))}
-            </div>
-          ) : (
-            <div className="ending-actions">
+          <div className="hero-note">
+            <p>
+              Turn a decision into an artifact, an agent call, or a completed
+              server action. If a system is not connected, we say so.
+            </p>
+            <div className={`connection connection-${connection}`}>
+              <span aria-hidden="true" />
               <div>
-                <span>RUN VALUE</span>
-                <strong>{stats.xp} XP</strong>
+                <strong>
+                  {connection === "connected"
+                    ? "Games server connected"
+                    : connection === "checking"
+                      ? "Checking Games server"
+                      : connection === "unavailable"
+                        ? "Games server unavailable"
+                        : "Connector not configured"}
+                </strong>
+                <small>{connectionNote}</small>
               </div>
-              <button onClick={reset} type="button">
-                OPEN ANOTHER TIMELINE ↗
+            </div>
+          </div>
+        </section>
+
+        <form className="command-bar" onSubmit={runCommand}>
+          <label htmlFor="command">Command</label>
+          <div className="command-input">
+            <span aria-hidden="true">›</span>
+            <input
+              ref={commandRef}
+              id="command"
+              value={command}
+              onChange={(event) => setCommand(event.target.value)}
+              onKeyDown={commandKeyDown}
+              placeholder="What should happen next?"
+              autoComplete="off"
+              spellCheck="false"
+            />
+            <kbd>/</kbd>
+            <button type="submit">Run</button>
+          </div>
+          <div className="command-meta">
+            <p aria-live="polite">{commandFeedback}</p>
+            <div aria-label="Suggested commands">
+              <button type="button" onClick={() => downloadFocusBlock(45)}>
+                focus 45
+              </button>
+              <button type="button" onClick={() => void startRun()}>
+                start
+              </button>
+              <button type="button" onClick={reportStatus}>
+                status
               </button>
             </div>
-          )}
-        </article>
-
-        <aside className="terminal-panel">
-          <div className="terminal-head">
-            <span>NOVA // AGENT CONSOLE</span>
-            <i />
           </div>
-          <div className="terminal-log" ref={terminalRef} aria-live="polite">
-            {terminal.map((line, index) => (
-              <p
-                key={`${line}-${index}`}
-                className={line.startsWith(">") ? "command-line" : ""}
-              >
-                <span>{timeStamp()}</span>
-                {line}
+        </form>
+
+        <section className="signals" aria-labelledby="signals-title">
+          <div className="section-heading">
+            <p className="eyebrow">Current context</p>
+            <h2 id="signals-title">Only what we can verify.</h2>
+          </div>
+          <div className="signal-grid">
+            <article>
+              <span className="signal-number">01</span>
+              <p>Local time</p>
+              <strong>{now ? localTimeLabel(now) : "Reading…"}</strong>
+              <small>Source: this device</small>
+            </article>
+            <article>
+              <span className="signal-number">02</span>
+              <p>MCP Games</p>
+              <strong>
+                {connection === "connected"
+                  ? "Available"
+                  : connection === "checking"
+                    ? "Checking"
+                    : "Not available"}
+              </strong>
+              <small>
+                Source:{" "}
+                {connectorUrl ? "live health check" : "build configuration"}
+              </small>
+            </article>
+            <article>
+              <span className="signal-number">03</span>
+              <p>Calendar context</p>
+              <strong>Not connected</strong>
+              <small>No calendar read permission requested</small>
+            </article>
+          </div>
+        </section>
+
+        <section className="workspace" aria-label="Execution workspace">
+          <article className="focus-card">
+            <p className="eyebrow">Useful without an account</p>
+            <h2>Protect time for one important thing.</h2>
+            <p className="body-copy">
+              Create a standards-based calendar event on this device. Nothing
+              is invented, uploaded, or silently scheduled.
+            </p>
+            <fieldset>
+              <legend>Duration</legend>
+              <div className="duration-options">
+                {[25, 45, 60].map((minutes) => (
+                  <button
+                    key={minutes}
+                    className={focusMinutes === minutes ? "selected" : ""}
+                    onClick={() => setFocusMinutes(minutes)}
+                    type="button"
+                    aria-pressed={focusMinutes === minutes}
+                  >
+                    {minutes} min
+                  </button>
+                ))}
+              </div>
+            </fieldset>
+            <button
+              className="primary-button"
+              onClick={() => downloadFocusBlock()}
+              type="button"
+            >
+              Download focus block
+              <span aria-hidden="true">↗</span>
+            </button>
+            <small className="privacy-note">
+              Output: one .ics file · Source: this device
+            </small>
+          </article>
+
+          <article className="game-card">
+            <div className="game-card-head">
+              <div>
+                <p className="eyebrow">Live MCP action</p>
+                <h2>{game?.sceneTitle || "Start a server-backed run."}</h2>
+              </div>
+              {game ? <code>{game.sessionId}</code> : null}
+            </div>
+
+            {game ? (
+              <>
+                <p className="game-narrative">
+                  {game.narrative ||
+                    "The server returned this scene without narrative text."}
+                </p>
+                {game.completed ? (
+                  <div className="completion-note" role="status">
+                    <strong>Run completed by the server.</strong>
+                    <p>
+                      {game.completedAt
+                        ? `Recorded ${new Date(game.completedAt).toLocaleString()}.`
+                        : "No completion timestamp was supplied."}
+                    </p>
+                    <button
+                      className="secondary-button"
+                      onClick={() => void startRun()}
+                      type="button"
+                      disabled={Boolean(busyAction)}
+                    >
+                      Start another run
+                    </button>
+                  </div>
+                ) : game.choices.length ? (
+                  <div className="live-choices">
+                    <p>Choose an action. Each one calls make_choice.</p>
+                    {game.choices.map((choice) => (
+                      <button
+                        key={choice.id}
+                        type="button"
+                        onClick={() => void makeChoice(choice)}
+                        disabled={Boolean(busyAction)}
+                      >
+                        <span>
+                          <strong>{displayChoice(choice)}</strong>
+                          {choice.description ? (
+                            <small>{choice.description}</small>
+                          ) : null}
+                        </span>
+                        <span aria-hidden="true">
+                          {busyAction === choice.id ? "…" : "↗"}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="completion-note" role="status">
+                    <strong>No choices were returned.</strong>
+                    <p>The interface will not manufacture a next move.</p>
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                <p className="body-copy">
+                  This button calls the connector, which starts the game through
+                  the MCP server. The scene and choices must come back from the
+                  server before anything is shown.
+                </p>
+                <button
+                  className="primary-button dark"
+                  onClick={() => void startRun()}
+                  type="button"
+                  disabled={Boolean(busyAction)}
+                >
+                  {busyAction === "start" ? "Starting…" : "Start live run"}
+                  <span aria-hidden="true">↗</span>
+                </button>
+                {connection !== "connected" ? (
+                  <div className="setup-note">
+                    <p>
+                      {connectorUrl
+                        ? "The configured connector is not currently answering."
+                        : "This deployment has no connector URL. Run the full stack locally to enable server actions."}
+                    </p>
+                    <button type="button" onClick={() => void copyLocalSetup()}>
+                      Copy local startup command
+                    </button>
+                  </div>
+                ) : null}
+              </>
+            )}
+          </article>
+        </section>
+
+        <section className="rights" aria-labelledby="rights-title">
+          <div className="section-heading">
+            <p className="eyebrow">Automation rights</p>
+            <h2 id="rights-title">Control stays legible.</h2>
+          </div>
+          <div className="rights-grid">
+            <article>
+              <div>
+                <span className="right-state enabled">Available</span>
+                <h3>Manual</h3>
+              </div>
+              <p>
+                You choose the action and confirm it with a click or command.
+                Device artifacts use this right.
               </p>
-            ))}
+            </article>
+            <article>
+              <div>
+                <span
+                  className={`right-state ${
+                    connection === "connected" ? "enabled" : "locked"
+                  }`}
+                >
+                  {connection === "connected" ? "Available" : "Locked"}
+                </span>
+                <h3>Assisted</h3>
+              </div>
+              <p>
+                The agent prepares or executes a named MCP tool after your
+                confirmation. Requires a connected Games server.
+              </p>
+            </article>
+            <article>
+              <div>
+                <span
+                  className={`right-state ${
+                    autonomousActionsConfigured &&
+                    autonomyCapability &&
+                    connection === "connected"
+                      ? "enabled"
+                      : "locked"
+                  }`}
+                >
+                  {autonomousActionsConfigured &&
+                  autonomyCapability &&
+                  connection === "connected"
+                    ? "Configured"
+                    : "Locked"}
+                </span>
+                <h3>Autonomous</h3>
+              </div>
+              <p>
+                Background action remains unavailable until both a live
+                server-declared capability and explicit deployment permission
+                are configured.
+              </p>
+            </article>
           </div>
-          <form onSubmit={runCommand} className="terminal-input">
-            <label htmlFor="command">COMMAND</label>
-            <div>
-              <span>›</span>
-              <input
-                id="command"
-                value={command}
-                onChange={(event) => setCommand(event.target.value)}
-                placeholder="help"
-                autoComplete="off"
-              />
-              <button type="submit">RUN</button>
-            </div>
-          </form>
-          <div className="quick-commands">
-            {["scan", "status", "boost"].map((item) => (
-              <button
-                key={item}
-                onClick={() => {
-                  if (item === "scan") log(`NOVA: ${scene.signal}.`);
-                  if (item === "status")
-                    log(`LVL ${level} · ${stats.xp} XP · ${history.length} choices`);
-                  if (item === "boost") {
-                    setStats((current) => ({
-                      ...current,
-                      serotonin: clamp(current.serotonin + 7),
-                    }));
-                    setReward("MICRO BOOST +7");
-                    log("NOVA: breath + water + posture stack applied.");
-                    playTone();
-                  }
-                }}
-                type="button"
-              >
-                /{item}
-              </button>
-            ))}
-          </div>
-        </aside>
-      </section>
+        </section>
 
-      <section className="system-strip">
-        <div>
-          <span>01</span>
-          <p>
-            <strong>READ THE WORLD</strong>
-            Calendar, weather, notes, and live MCP context become story fuel.
-          </p>
-        </div>
-        <div>
-          <span>02</span>
-          <p>
-            <strong>MAKE THE MOVE</strong>
-            Tap a choice or command NOVA directly through the terminal.
-          </p>
-        </div>
-        <div>
-          <span>03</span>
-          <p>
-            <strong>KEEP THE GAIN</strong>
-            State, streaks, unlocks, and agent memory make every run matter.
-          </p>
-        </div>
-      </section>
+        <section className="activity" id="activity" aria-labelledby="activity-title">
+          <div className="section-heading">
+            <p className="eyebrow">Execution receipts</p>
+            <h2 id="activity-title">What actually happened.</h2>
+          </div>
+          <div className="recommendation">
+            <div>
+              <span>Next useful shortcut</span>
+              <strong>
+                {recommendation
+                  ? recommendation.label
+                  : "No repeated action yet"}
+              </strong>
+              <p>
+                {recommendation
+                  ? recommendation.reason
+                  : "Complete the same kind of action twice and this device will offer a one-click repeat."}
+              </p>
+            </div>
+            {recommendation ? (
+              <button
+                type="button"
+                onClick={() =>
+                  recommendation.kind === "focus"
+                    ? downloadFocusBlock(recommendation.minutes)
+                    : void startRun()
+                }
+              >
+                Run shortcut <span aria-hidden="true">↗</span>
+              </button>
+            ) : null}
+          </div>
+          <div className="receipt-list" aria-live="polite">
+            {receipts.length ? (
+              receipts.map((receipt) => (
+                <article key={receipt.id}>
+                  <span className="receipt-status" aria-hidden="true">
+                    ✓
+                  </span>
+                  <div>
+                    <strong>{receipt.title}</strong>
+                    <p>{receipt.detail}</p>
+                  </div>
+                  <small>{receipt.source}</small>
+                  <time>{receipt.time}</time>
+                </article>
+              ))
+            ) : (
+              <div className="empty-receipts">
+                <p>No actions yet.</p>
+                <span>
+                  Download a focus block or start a live run. Completed actions
+                  will appear here with their source.
+                </span>
+              </div>
+            )}
+          </div>
+        </section>
+      </div>
 
       <footer>
         <div>
-          <span className="brand-mark small">M</span>
+          <span className="wordmark-mark small" aria-hidden="true">
+            m
+          </span>
           <p>
-            <strong>MCP GAMES</strong>
-            Flagship playable surface of Unrestricted OmniAgents.
+            <strong>MCP Games</strong>
+            Decisions with verifiable consequences.
           </p>
         </div>
-        <p className="footer-note">
-          FICTIONAL GAME METRICS · NOT MEDICAL GUIDANCE
-        </p>
+        <p>Device actions stay local. Server actions carry their source.</p>
       </footer>
-
-      {reward && (
-        <div className="reward" role="status">
-          <span>UNLOCKED</span>
-          <strong>{reward}</strong>
-        </div>
-      )}
     </main>
-  );
-}
-
-function Stat({
-  label,
-  value,
-  color,
-}: {
-  label: string;
-  value: number;
-  color: string;
-}) {
-  return (
-    <div className="stat">
-      <div>
-        <span>{label}</span>
-        <strong>{value}</strong>
-      </div>
-      <div className="stat-track">
-        <i className={color} style={{ width: `${value}%` }} />
-      </div>
-    </div>
   );
 }

@@ -26,22 +26,22 @@ export async function generateMetadata(): Promise<Metadata> {
 
   return {
     metadataBase: new URL(origin),
-    title: "MCP Games — Your World Is the Game",
+    title: "MCP Games — Make the Next Move Real",
     description:
-      "A playable AI adventure powered by real-world context, agent intelligence, and the MCP Games super server.",
+      "A playable execution surface that turns decisions into artifacts, agent calls, and verifiable MCP server actions.",
     icons: {
-      icon: "/favicon.png",
-      shortcut: "/favicon.png",
+      icon: "/favicon.svg",
+      shortcut: "/favicon.svg",
     },
     openGraph: {
       title: "MCP Games",
-      description: "Your world is the game.",
-      images: [{ url: `${origin}/og.png`, width: 1734, height: 907 }],
+      description: "Make the next move real.",
+      images: [{ url: `${origin}/og.png`, width: 1200, height: 630 }],
     },
     twitter: {
       card: "summary_large_image",
       title: "MCP Games",
-      description: "Your world is the game.",
+      description: "Make the next move real.",
       images: [`${origin}/og.png`],
     },
   };
