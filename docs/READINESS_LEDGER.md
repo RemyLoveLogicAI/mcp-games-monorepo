@@ -1,6 +1,6 @@
 # MCP Games Readiness Ledger
 
-Last updated: 2026-07-24
+Last updated: 2026-07-25
 
 This is the durable source of truth for the flagship MCP Games launch. It records
 what is operational now, what was verified, and the prioritized work required to
@@ -41,17 +41,26 @@ turn the current solid baseline into the complete super-server vision.
   game contract.
 - Dockerfiles, Compose wiring, environment examples, health probes, graceful
   shutdown, and safe in-memory persistence defaults are present.
+- The execution-ledger workspace now builds with canonical proposal and
+  receipt-event hashing, a PostgreSQL migration, a public package entry point,
+  and deterministic unit coverage.
+- Sites packaging is single-flight across vinext's concurrent Vite
+  environments, so repeated and uncached builds no longer race on
+  `dist/.openai/drizzle`.
 
 ## Verification snapshot
 
 - `pnpm build:flagship`: 7/7 tasks passed.
 - Root `pnpm typecheck`: 13/13 tasks passed.
-- Root `pnpm test`: 19/19 tasks passed.
+- Root `pnpm test`: 21/21 tasks passed.
+- Root `pnpm lint`: 5/5 tasks passed.
+- Execution-ledger unit tests: 4/4 passed.
 - MCP server unit tests: 34/34 passed.
 - MCP game-engine focused tests: 11/11 passed.
 - Story engine build and immutable playthrough test: passed.
 - Connector HTTP and stdio integration tests: 11/11 passed.
 - Flagship rendered-page test, build, and lint: passed.
+- Forced uncached flagship build and rendered-page test: passed.
 - `docker-compose config --quiet`: passed.
 - Live default-game load plus server `/health` and `/ready`: passed.
 - Container execution was not verified locally because the Colima Docker daemon
@@ -62,6 +71,24 @@ turn the current solid baseline into the complete super-server vision.
   as a local recovery artifact.
 
 ## Backlog
+
+### P0 — Initialize and enforce TestChimp collaboration
+
+The official TestChimp skill is installed and its preflight passes, but this
+repository does not yet contain `.testchimp-tests`, `.testchimp-plans`, project
+MCP configuration, or `plans/knowledge/ai-test-instructions.md`. TestChimp
+correctly refuses to launch Playwright without those files and a verified
+runner API key.
+
+Acceptance criteria:
+
+- `/testchimp init` completes and the generated project files are reviewed.
+- The API key remains in the approved MCP/runner environment and is never
+  committed.
+- `/testchimp test` produces an approved branch plan before browser execution.
+- The flagship start, choice, receipt, offline, and focus-artifact journeys run
+  as linked SmartTests with real scenario IDs.
+- CI runs the mapped TestChimp suite from the SmartTests root.
 
 ### P0 — Deploy and bind the production execution plane
 

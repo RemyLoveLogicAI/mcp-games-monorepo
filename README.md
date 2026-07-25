@@ -59,8 +59,10 @@ The website checks Games execution readiness through the connector, starts a
 real MCP session, executes typed choices, and retains returned receipts in
 device-local history. Browser-created focus blocks download as real `.ics`
 artifacts and receive separate local receipts. Device-local history is useful
-but is not an immutable audit ledger; durable, tamper-evident receipts are
-tracked in Beads.
+but is not yet an immutable audit ledger. The execution-ledger package now
+provides canonical hashing primitives and the PostgreSQL schema foundation;
+wiring every connector response and side effect into that ledger remains a
+release task tracked in the readiness ledger.
 
 The deployed Sites frontend currently has no hosted connector and therefore
 reports the execution plane as unavailable. Production connector hosting,
@@ -93,16 +95,16 @@ The included game definition lives at
 
 Copy `.env.example` for local development. The important browser boundary is:
 
-| Variable | Consumer | Purpose |
-| --- | --- | --- |
-| `NEXT_PUBLIC_MCP_CONNECTOR_URL` | Flagship site | Connector base URL embedded at build time |
-| `MCP_CONNECTOR_PORT` or `PORT` | MCP connector | REST listener; defaults to `3001` |
-| `CORS_ORIGINS` or `MCP_CONNECTOR_ALLOWED_ORIGINS` | MCP connector | Comma-separated browser origins |
-| `MCP_GAMES_SERVER_ENTRY` | MCP connector | Optional explicit path to the built Games stdio entry |
-| `MCP_GAMES_ROOT`, `MCP_GAMES_WORKDIR` | MCP connector | Optional game allowlist root and child-process working directory |
-| `MCP_GAMES_FLAGSHIP_URL` | Legacy CYOA app | Canonical flagship redirect destination |
-| `REDIS_URL` | Server packages | Cache and telemetry bus |
-| `SUPABASE_URL`, `SUPABASE_KEY` | MCP Games server | Optional persistence adapter |
+| Variable                                          | Consumer         | Purpose                                                          |
+| ------------------------------------------------- | ---------------- | ---------------------------------------------------------------- |
+| `NEXT_PUBLIC_MCP_CONNECTOR_URL`                   | Flagship site    | Connector base URL embedded at build time                        |
+| `MCP_CONNECTOR_PORT` or `PORT`                    | MCP connector    | REST listener; defaults to `3001`                                |
+| `CORS_ORIGINS` or `MCP_CONNECTOR_ALLOWED_ORIGINS` | MCP connector    | Comma-separated browser origins                                  |
+| `MCP_GAMES_SERVER_ENTRY`                          | MCP connector    | Optional explicit path to the built Games stdio entry            |
+| `MCP_GAMES_ROOT`, `MCP_GAMES_WORKDIR`             | MCP connector    | Optional game allowlist root and child-process working directory |
+| `MCP_GAMES_FLAGSHIP_URL`                          | Legacy CYOA app  | Canonical flagship redirect destination                          |
+| `REDIS_URL`                                       | Server packages  | Cache and telemetry bus                                          |
+| `SUPABASE_URL`, `SUPABASE_KEY`                    | MCP Games server | Optional persistence adapter                                     |
 
 Never put secrets in `NEXT_PUBLIC_*` variables.
 
@@ -115,6 +117,7 @@ apps/
   cyoa-engine/          legacy entry redirected to the flagship
   omnigentic/           agent application
 packages/
+  execution-ledger/     canonical action and receipt hashing + SQL migration
   mcp-games-server/     MCP stdio game server
   story-engine/         narrative engine
   mcp-sdk/              MCP client primitives
@@ -139,6 +142,17 @@ pnpm lint
 Some older packages do not yet define every lifecycle task, so Turborepo may
 report that no task exists for those workspaces. The flagship build command is
 the fastest integration gate for the primary product path.
+
+TestChimp collaboration requires repository initialization before its browser
+runner can be used:
+
+```text
+/testchimp init
+/testchimp test
+```
+
+The initialization step creates the project markers, MCP configuration, test
+instructions, and credential handoff required by TestChimp's runner gate.
 
 ## Platform philosophy
 
