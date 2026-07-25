@@ -3,6 +3,13 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { z } from 'zod';
 import { MCPClient } from 'mcp-sdk';
+import path from 'node:path';
+import { existsSync } from 'node:fs';
+import {
+  executeWithReceipt,
+  StdioGamesRuntime,
+  type GamesRuntime,
+} from './games-bridge';
 
 dotenv.config();
 
@@ -33,6 +40,22 @@ const querySchema = z.object({
     .optional(),
 });
 
+const sessionSchema = z.object({
+  playerId: z.string().trim().min(1).max(128),
+});
+
+const choiceSchema = z.object({
+  choiceId: z.string().trim().min(1).max(128),
+});
+
+const loadGameSchema = z.object({
+  gameId: z.string().trim().regex(/^[a-z0-9][a-z0-9-]{0,63}$/),
+});
+
+const meshSchema = z.record(z.unknown()).refine((value) => Object.keys(value).length > 0, {
+  message: 'A realtime mesh request is required.',
+});
+
 function allowedOrigins(): string[] {
   return (process.env.MCP_CONNECTOR_ALLOWED_ORIGINS || process.env.CORS_ORIGINS || '')
     .split(',')
@@ -40,9 +63,52 @@ function allowedOrigins(): string[] {
     .filter(Boolean);
 }
 
-export function createApp(client: MCPClient = new MCPClient()): Express {
+class GamesTimeoutError extends Error {
+  constructor(timeoutMs: number) {
+    super(`The MCP Games server did not respond within ${timeoutMs}ms.`);
+    this.name = 'GamesTimeoutError';
+  }
+}
+
+async function withDeadline<T>(operation: Promise<T>, timeoutMs: number): Promise<T> {
+  let timer: NodeJS.Timeout | undefined;
+  try {
+    return await Promise.race([
+      operation,
+      new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(() => reject(new GamesTimeoutError(timeoutMs)), timeoutMs);
+        timer.unref();
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+function gamesUnavailable(res: Response, error: unknown): void {
+  const message = error instanceof Error ? error.message : 'The MCP Games server is unavailable.';
+  const timedOut = error instanceof GamesTimeoutError;
+  res.status(timedOut ? 504 : 503).json({
+    error: timedOut ? 'games_timeout' : 'games_unavailable',
+    message,
+    recovery: {
+      command: 'pnpm --filter @omnigents/mcp-games-server build',
+      environment: 'MCP_GAMES_SERVER_ENTRY',
+    },
+  });
+}
+
+export function createApp(
+  client: MCPClient = new MCPClient(),
+  gamesRuntime: GamesRuntime = new StdioGamesRuntime(),
+  options: { gamesTimeoutMs?: number } = {},
+): Express {
   const app = express();
   const origins = allowedOrigins();
+  const gamesTimeoutMs = options.gamesTimeoutMs ?? 15_000;
+  const gamesRoot = process.env.MCP_GAMES_ROOT ?? path.resolve(__dirname, '../../../games');
+  const callGames = <T>(operation: Promise<T>): Promise<T> =>
+    withDeadline(operation, gamesTimeoutMs);
 
   app.disable('x-powered-by');
   app.use(cors({ origin: origins.length > 0 ? origins : true }));
@@ -63,12 +129,22 @@ export function createApp(client: MCPClient = new MCPClient()): Express {
       service: 'mcp-connector',
       version: '1.0.0',
       uptimeSeconds: Math.floor(process.uptime()),
-      capabilities: ['connection-management', 'semantic-query', 'context-contract'],
+      capabilities: [
+        'connection-management',
+        'semantic-query',
+        'context-contract',
+        'games-tool-execution',
+      ],
+      games: { status: gamesRuntime.getStatus(), transport: 'stdio' },
     });
   });
 
   app.get('/ready', (_req: Request, res: Response) => {
-    res.json({ status: 'ready', service: 'mcp-connector' });
+    res.json({
+      status: 'ready',
+      service: 'mcp-connector',
+      games: { status: gamesRuntime.getStatus(), required: false },
+    });
   });
 
   app.get('/api', (_req: Request, res: Response) => {
@@ -82,6 +158,12 @@ export function createApp(client: MCPClient = new MCPClient()): Express {
         disconnect: 'DELETE /api/mcp/disconnect/:serverId',
         query: 'POST /api/mcp/query',
         context: 'GET /api/mcp/context/:userId',
+        gamesCapabilities: 'GET /api/games/capabilities',
+        gamesHealth: 'GET /api/games/health',
+        loadGame: 'POST /api/games/load',
+        startGame: 'POST /api/games/sessions',
+        makeChoice: 'POST /api/games/sessions/:sessionId/choices',
+        planRealtimeMesh: 'POST /api/games/mesh/plan',
       },
     });
   });
@@ -91,7 +173,10 @@ export function createApp(client: MCPClient = new MCPClient()): Express {
     res.json({
       connections: knownServers.map((server) => ({
         ...server,
-        status: active.get(server.id)?.status ?? 'disconnected',
+        status:
+          server.id === 'games'
+            ? gamesRuntime.getStatus()
+            : (active.get(server.id)?.status ?? 'disconnected'),
       })),
     });
   });
@@ -100,6 +185,31 @@ export function createApp(client: MCPClient = new MCPClient()): Express {
     const parsed = connectSchema.safeParse(req.body);
     if (!parsed.success) {
       res.status(400).json({ error: 'invalid_request', issues: parsed.error.issues });
+      return;
+    }
+
+    if (req.params.serverId === 'games') {
+      try {
+        const health = await callGames(gamesRuntime.connect());
+        res.status(201).json({
+          connection: {
+            id: 'games',
+            name: 'MCP Games Super Server',
+            status: 'connected',
+            transport: 'stdio',
+            capabilities: [
+              'health_check',
+              'load_game',
+              'start_game',
+              'make_choice',
+              'plan_realtime_mesh',
+            ],
+            health,
+          },
+        });
+      } catch (error) {
+        gamesUnavailable(res, error);
+      }
       return;
     }
 
@@ -112,6 +222,12 @@ export function createApp(client: MCPClient = new MCPClient()): Express {
   });
 
   app.delete('/api/mcp/disconnect/:serverId', async (req: Request, res: Response) => {
+    if (req.params.serverId === 'games') {
+      await gamesRuntime.disconnect();
+      res.status(204).end();
+      return;
+    }
+
     const result = await client.disconnect(req.params.serverId);
     if (!result.success) {
       res.status(500).json({ error: 'disconnect_failed', message: result.error.message });
@@ -124,6 +240,19 @@ export function createApp(client: MCPClient = new MCPClient()): Express {
     const parsed = querySchema.safeParse(req.body);
     if (!parsed.success) {
       res.status(400).json({ error: 'invalid_request', issues: parsed.error.issues });
+      return;
+    }
+
+    if (parsed.data.server === 'games') {
+      res.status(422).json({
+        error: 'unsupported_operation',
+        message:
+          'Free-form semantic queries are not implemented by the Games server. Use the typed game session endpoints.',
+        endpoints: {
+          start: 'POST /api/games/sessions',
+          choice: 'POST /api/games/sessions/:sessionId/choices',
+        },
+      });
       return;
     }
 
@@ -143,6 +272,133 @@ export function createApp(client: MCPClient = new MCPClient()): Express {
     });
   });
 
+  app.get('/api/games/health', async (_req: Request, res: Response) => {
+    try {
+      const server = await callGames(gamesRuntime.health());
+      res.json({
+        status: 'available',
+        server,
+        capabilities: [
+          'health_check',
+          'load_game',
+          'start_game',
+          'make_choice',
+          'plan_realtime_mesh',
+        ],
+        provenance: {
+          source: 'local-process',
+          transport: 'stdio',
+          checkedBy: 'health_check',
+          persistence: 'none',
+        },
+      });
+    } catch (error) {
+      gamesUnavailable(res, error);
+    }
+  });
+
+  app.get('/api/games/capabilities', async (_req: Request, res: Response) => {
+    try {
+      const tools = await callGames(gamesRuntime.listCapabilities());
+      res.json({
+        tools,
+        provenance: {
+          source: 'local-process',
+          transport: 'stdio',
+          checkedBy: 'tools/list',
+          persistence: 'none',
+        },
+      });
+    } catch (error) {
+      gamesUnavailable(res, error);
+    }
+  });
+
+  app.post('/api/games/load', async (req: Request, res: Response) => {
+    const parsed = loadGameSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: 'invalid_request', issues: parsed.error.issues });
+      return;
+    }
+    const gamePath = path.resolve(gamesRoot, `${parsed.data.gameId}.yaml`);
+    if (!gamePath.startsWith(`${path.resolve(gamesRoot)}${path.sep}`) || !existsSync(gamePath)) {
+      res.status(404).json({ error: 'game_not_found', gameId: parsed.data.gameId });
+      return;
+    }
+
+    try {
+      const execution = await executeWithReceipt(
+        'load_game',
+        { gameId: parsed.data.gameId },
+        () => callGames(gamesRuntime.loadGame(gamePath)),
+      );
+      res.json({ game: execution.result, receipt: execution.receipt });
+    } catch (error) {
+      gamesUnavailable(res, error);
+    }
+  });
+
+  app.post('/api/games/sessions', async (req: Request, res: Response) => {
+    const parsed = sessionSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: 'invalid_request', issues: parsed.error.issues });
+      return;
+    }
+
+    try {
+      const execution = await executeWithReceipt(
+        'start_game',
+        { playerId: parsed.data.playerId },
+        () => callGames(gamesRuntime.startSession(parsed.data.playerId)),
+      );
+      res.status(201).json({ session: execution.result, receipt: execution.receipt });
+    } catch (error) {
+      gamesUnavailable(res, error);
+    }
+  });
+
+  app.post('/api/games/sessions/:sessionId/choices', async (req: Request, res: Response) => {
+    const sessionId = req.params.sessionId.trim();
+    const parsed = choiceSchema.safeParse(req.body);
+    if (!sessionId || !parsed.success) {
+      res.status(400).json({
+        error: 'invalid_request',
+        issues: parsed.success ? [{ path: ['sessionId'], message: 'Required' }] : parsed.error.issues,
+      });
+      return;
+    }
+
+    try {
+      const execution = await executeWithReceipt(
+        'make_choice',
+        { sessionId, choiceId: parsed.data.choiceId },
+        () => callGames(gamesRuntime.makeChoice(sessionId, parsed.data.choiceId)),
+      );
+      res.json({ turn: execution.result, receipt: execution.receipt });
+    } catch (error) {
+      gamesUnavailable(res, error);
+    }
+  });
+
+  app.post('/api/games/mesh/plan', async (req: Request, res: Response) => {
+    const parsed = meshSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: 'invalid_request', issues: parsed.error.issues });
+      return;
+    }
+
+    try {
+      const execution = await executeWithReceipt(
+        'plan_realtime_mesh',
+        parsed.data,
+        () => callGames(gamesRuntime.planRealtimeMesh(parsed.data)),
+      );
+      res.json({ blueprint: execution.result, receipt: execution.receipt });
+    } catch (error) {
+      gamesUnavailable(res, error);
+    }
+  });
+
   app.use((_req: Request, res: Response) => {
     res.status(404).json({ error: 'not_found' });
   });
@@ -156,9 +412,23 @@ export function startConnector(): ReturnType<Express['listen']> {
   if (!Number.isInteger(port) || port < 0 || port > 65535) {
     throw new Error(`Invalid connector port: ${rawPort}`);
   }
-  return createApp().listen(port, () => {
+  const gamesRuntime = new StdioGamesRuntime();
+  const server = createApp(new MCPClient(), gamesRuntime).listen(port, () => {
     console.log(`MCP Connector listening on http://0.0.0.0:${port}`);
   });
+  let closing = false;
+  const shutdown = () => {
+    if (closing) return;
+    closing = true;
+    void gamesRuntime.disconnect().finally(() => server.close());
+  };
+  process.once('SIGTERM', shutdown);
+  process.once('SIGINT', shutdown);
+  server.once('close', () => {
+    process.removeListener('SIGTERM', shutdown);
+    process.removeListener('SIGINT', shutdown);
+  });
+  return server;
 }
 
 if (require.main === module) {

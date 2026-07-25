@@ -17,7 +17,10 @@
   "dependencies": {
     "@omnigents/shared": "workspace:*",
     "@supabase/supabase-js": "^2.39.0",
-    "cli-table3": "0.6.5"
+    "chalk": "^4.1.2",
+    "cli-table3": "0.6.5",
+    "commander": "^11.1.0",
+    "ora": "^5.4.1"
   },
   "devDependencies": {
     "@types/node": "^20.19.33",
