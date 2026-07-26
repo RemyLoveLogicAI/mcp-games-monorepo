@@ -236,11 +236,21 @@ export class JWTHandler {
 // FACTORY FUNCTIONS
 // ═══════════════════════════════════════════════════════════
 
+const INSECURE_DEFAULTS = ['default-access-secret', 'default-refresh-secret'];
+
 export function createJWTHandler(
   accessSecret: string = process.env.JWT_ACCESS_SECRET || 'default-access-secret',
   refreshSecret: string = process.env.JWT_REFRESH_SECRET || 'default-refresh-secret',
   agent?: SelfAwareAgent
 ): JWTHandler {
+  // Reject insecure placeholder secrets in production to prevent token forgery.
+  if (process.env.NODE_ENV === 'production') {
+    if (INSECURE_DEFAULTS.includes(accessSecret) || INSECURE_DEFAULTS.includes(refreshSecret)) {
+      throw new Error(
+        'JWT secrets must be set via JWT_ACCESS_SECRET and JWT_REFRESH_SECRET environment variables in production.'
+      );
+    }
+  }
   return new JWTHandler(accessSecret, refreshSecret, agent);
 }
 

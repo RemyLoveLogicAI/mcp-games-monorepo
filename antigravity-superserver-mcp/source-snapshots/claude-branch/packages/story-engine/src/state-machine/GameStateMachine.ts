@@ -753,16 +753,73 @@ export class GameStateMachine {
   }
 
   private evaluateCondition(condition: string, context: Record<string, unknown>): boolean {
-    // Simple condition evaluation - supports basic comparisons
-    // For production, use a proper expression evaluator
-    const { data, variables } = context;
-    try {
-      // Create a safe evaluation context
-      const fn = new Function('data', 'variables', `return ${condition}`);
-      return !!fn(data, variables);
-    } catch {
+    // Safe condition evaluation - supports simple comparison expressions only.
+    // Format: <path> <operator> <value>
+    //   path: dot-separated property path rooted at 'data' or 'variables'
+    //   operator: ===, !==, ==, !=, >, <, >=, <=
+    //   value: number, boolean literal (true/false), null, or quoted string
+    // Examples: "data.health > 50", "variables.hasSword === true"
+    const COMPARISON_RE = /^([\w.]+)\s*(===|!==|==|!=|>=|<=|>|<)\s*(.+)$/;
+    const match = condition.trim().match(COMPARISON_RE);
+    if (!match) {
       return false;
     }
+
+    const [, path, operator, rawValue] = match;
+    const leftValue = this.getNestedValue(context, path);
+    const rightValue = this.parseConditionValue(rawValue.trim());
+
+    switch (operator) {
+      case '===':
+      case '==':
+        return leftValue === rightValue;
+      case '!==':
+      case '!=':
+        return leftValue !== rightValue;
+      case '>':
+      case '<':
+      case '>=':
+      case '<=': {
+        // Numeric comparisons require both operands to be actual numbers.
+        if (typeof leftValue !== 'number' || typeof rightValue !== 'number') {
+          return false;
+        }
+        if (operator === '>') return leftValue > rightValue;
+        if (operator === '<') return leftValue < rightValue;
+        if (operator === '>=') return leftValue >= rightValue;
+        return leftValue <= rightValue;
+      }
+      default:
+        return false;
+    }
+  }
+
+  private getNestedValue(obj: Record<string, unknown>, path: string): unknown {
+    const parts = path.split('.');
+    let current: unknown = obj;
+    for (const part of parts) {
+      if (current === null || current === undefined || typeof current !== 'object') {
+        return undefined;
+      }
+      current = (current as Record<string, unknown>)[part];
+    }
+    return current;
+  }
+
+  private parseConditionValue(raw: string): unknown {
+    if (raw === 'true') return true;
+    if (raw === 'false') return false;
+    if (raw === 'null') return null;
+    if (raw === 'undefined') return undefined;
+    if (
+      (raw.startsWith('"') && raw.endsWith('"')) ||
+      (raw.startsWith("'") && raw.endsWith("'"))
+    ) {
+      return raw.slice(1, -1);
+    }
+    const num = Number(raw);
+    if (!isNaN(num) && raw !== '') return num;
+    return raw;
   }
 
   private filterAvailableChoices(choices: Choice[], gameState: GameState): Choice[] {
