@@ -42,7 +42,12 @@ import type {
   GameEvent,
   EventHandler,
   MCPError,
-} from 'shared-types';
+} from 'shared-types-snapshot';
+import { AmbiguityDetector } from '../dialogue/AmbiguityDetector';
+import {
+  ClarificationHandler,
+  type ClarificationRequest,
+} from '../dialogue/ClarificationHandler';
 
 /**
  * State machine configuration
@@ -96,17 +101,31 @@ export class GameStateMachine {
   private mcpExecutor?: MCPQueryExecutor;
   private saveManager?: SaveManager;
   private autoSaveTimer?: NodeJS.Timeout;
+  private autoSaveFailureCount = 0;
+
+  /** Serializes public transitions so they never overlap (Issue #14). */
+  private transitionQueue: Promise<unknown> = Promise.resolve();
+  /** Upper bound on handlers per event to prevent unbounded growth. */
+  private readonly maxHandlersPerEvent = 100;
+  /** Disable auto-save after this many consecutive failures. */
+  private readonly maxAutoSaveFailures = 3;
+
+  private ambiguityDetector: AmbiguityDetector;
+  private clarificationHandler: ClarificationHandler;
 
   constructor(
     story: Story,
     config: StateMachineConfig = {},
     mcpExecutor?: MCPQueryExecutor,
-    saveManager?: SaveManager
+    saveManager?: SaveManager,
+    clarificationHandler?: ClarificationHandler
   ) {
     this.story = story;
     this.config = { ...DEFAULT_CONFIG, ...config };
     this.mcpExecutor = mcpExecutor;
     this.saveManager = saveManager;
+    this.ambiguityDetector = new AmbiguityDetector();
+    this.clarificationHandler = clarificationHandler ?? new ClarificationHandler();
 
     // Initialize to idle state
     this.state = {
@@ -179,9 +198,29 @@ export class GameStateMachine {
   // ==========================================================================
 
   /**
-   * Process a state transition
+   * Process a state transition.
+   *
+   * Public transitions are serialized through a queue so two concurrent
+   * callers can never interleave their reads and writes of the machine state
+   * (Issue #14). Handlers that trigger follow-up transitions internally call
+   * {@link executeTransition} directly to avoid re-entering (and deadlocking
+   * on) the queue.
    */
   async transition(action: StateTransition): Promise<StateMachineState> {
+    const result = this.transitionQueue.then(() => this.executeTransition(action));
+
+    // Keep the queue alive regardless of whether this transition rejects.
+    this.transitionQueue = result.then(
+      () => undefined,
+      () => undefined
+    );
+
+    return result;
+  }
+
+  private async executeTransition(
+    action: StateTransition
+  ): Promise<StateMachineState> {
     this.log(`Transition: ${action.type} from state: ${this.state.type}`);
 
     try {
@@ -266,8 +305,8 @@ export class GameStateMachine {
         pendingMCPQueries: firstScene.mcpQueries.map(q => q.id),
       });
 
-      // Trigger MCP data fetch
-      return this.transition({
+      // Trigger MCP data fetch (already inside a serialized transition)
+      return this.executeTransition({
         type: 'FETCH_MCP_DATA',
         queries: firstScene.mcpQueries,
       });
@@ -356,6 +395,23 @@ export class GameStateMachine {
       throw this.createError('STATE_CORRUPTED', 'No active game state');
     }
 
+    // If a clarification is pending for this session, treat the incoming id as
+    // the player's clarifying answer rather than a direct choice (Issue #15).
+    const userId = this.state.gameState.userId;
+    if (this.clarificationHandler.hasPendingClarification(userId)) {
+      const resolvedChoice = await this.clarificationHandler.resolveClarification(
+        userId,
+        choiceId
+      );
+
+      if (!resolvedChoice) {
+        // Still ambiguous - stay put and keep waiting for clarification.
+        return this.state;
+      }
+
+      choiceId = resolvedChoice.id;
+    }
+
     // Find the choice
     const choice = this.state.currentScene.choices.find(c => c.id === choiceId);
     if (!choice) {
@@ -394,9 +450,10 @@ export class GameStateMachine {
       ...this.state.gameState,
       currentSceneId: nextScene.id,
       variables: newVariables,
-      choiceHistory: [...this.state.gameState.choiceHistory, historyEntry].slice(
-        -this.config.maxHistoryLength
-      ),
+      choiceHistory: this.trimChoiceHistory([
+        ...this.state.gameState.choiceHistory,
+        historyEntry,
+      ]),
       timestamp: new Date().toISOString(),
     };
 
@@ -416,7 +473,7 @@ export class GameStateMachine {
         pendingMCPQueries: nextScene.mcpQueries.map(q => q.id),
       });
 
-      return this.transition({
+      return this.executeTransition({
         type: 'FETCH_MCP_DATA',
         queries: nextScene.mcpQueries,
       });
@@ -448,14 +505,58 @@ export class GameStateMachine {
       this.stopAutoSave();
     }
 
-    // Auto-save if enabled
+    // Auto-save if enabled. This is fire-and-forget and intentionally goes
+    // through the public queue so it serializes behind the current transition.
     if (this.config.autoSave && !isEnded) {
-      this.transition({ type: 'SAVE_GAME' }).catch(e => {
+      void this.transition({ type: 'SAVE_GAME' }).catch(e => {
         this.log(`Auto-save failed: ${e}`);
       });
     }
 
     return this.state;
+  }
+
+  /**
+   * Handle a free-text player response (Issue #15).
+   *
+   * If the input is ambiguous (matches several choices or expresses
+   * uncertainty), a {@link ClarificationRequest} is returned and stored so the
+   * player can disambiguate. Otherwise the matched choice is applied via the
+   * normal (serialized) MAKE_CHOICE transition.
+   */
+  async handleNaturalLanguageChoice(
+    playerInput: string
+  ): Promise<StateMachineState | ClarificationRequest> {
+    this.assertState(['choosing']);
+
+    if (!this.state.currentScene || !this.state.gameState) {
+      throw this.createError('STATE_CORRUPTED', 'No active scene');
+    }
+
+    const userId = this.state.gameState.userId;
+    const availableChoices = this.state.availableChoices ?? [];
+
+    const result = this.ambiguityDetector.detectAmbiguity(
+      playerInput,
+      availableChoices
+    );
+
+    if (result.isAmbiguous) {
+      return this.clarificationHandler.requestClarification(
+        userId,
+        playerInput,
+        result.matchedChoices
+      );
+    }
+
+    if (result.matchedChoices.length === 0) {
+      throw this.createError('INVALID_CHOICE', 'No matching choices found');
+    }
+
+    return this.transition({
+      type: 'MAKE_CHOICE',
+      choiceId: result.matchedChoices[0].id,
+    });
   }
 
   private async handleFetchMCPData(queries: SceneMCPQuery[]): Promise<StateMachineState> {
@@ -467,12 +568,25 @@ export class GameStateMachine {
           fallbackData[query.resultVariable] = query.fallback;
         }
       }
-      return this.transition({ type: 'MCP_DATA_RECEIVED', data: fallbackData });
+      return this.executeTransition({ type: 'MCP_DATA_RECEIVED', data: fallbackData });
     }
+
+    // Capture the state we expect to still be in when the async query resolves.
+    const expectedStateType = this.state.type;
 
     try {
       const mcpData = await this.mcpExecutor.executeQueries(queries);
-      return this.transition({ type: 'MCP_DATA_RECEIVED', data: mcpData });
+
+      // If the state changed underneath us while awaiting, the result is stale
+      // and must not be applied blindly (Issue #14).
+      if (this.state.type !== expectedStateType) {
+        this.log(
+          `State changed during MCP fetch (expected ${expectedStateType}, got ${this.state.type}); discarding result`
+        );
+        return this.state;
+      }
+
+      return this.executeTransition({ type: 'MCP_DATA_RECEIVED', data: mcpData });
     } catch (error) {
       const mcpError: MCPError = {
         code: 'UNKNOWN_ERROR',
@@ -480,7 +594,7 @@ export class GameStateMachine {
         retryable: true,
         timestamp: new Date().toISOString(),
       };
-      return this.transition({ type: 'MCP_DATA_FAILED', error: mcpError });
+      return this.executeTransition({ type: 'MCP_DATA_FAILED', error: mcpError });
     }
   }
 
@@ -568,7 +682,7 @@ export class GameStateMachine {
     }
 
     // All queries have fallbacks, continue with fallback data
-    return this.transition({ type: 'MCP_DATA_RECEIVED', data: fallbackData });
+    return this.executeTransition({ type: 'MCP_DATA_RECEIVED', data: fallbackData });
   }
 
   private async handleSaveGame(): Promise<StateMachineState> {
@@ -588,11 +702,11 @@ export class GameStateMachine {
 
       if (this.saveManager) {
         const saveId = await this.saveManager.save(stateToSave);
-        return this.transition({ type: 'SAVE_COMPLETE', saveId });
+        return this.executeTransition({ type: 'SAVE_COMPLETE', saveId });
       }
 
       // No save manager, return serialized state
-      return this.transition({
+      return this.executeTransition({
         type: 'SAVE_COMPLETE',
         saveId: JSON.stringify(stateToSave),
       });
@@ -601,7 +715,7 @@ export class GameStateMachine {
         'SAVE_FAILED',
         `Failed to save: ${error instanceof Error ? error.message : 'Unknown error'}`
       );
-      return this.transition({ type: 'SAVE_FAILED', error: gameError });
+      return this.executeTransition({ type: 'SAVE_FAILED', error: gameError });
     }
   }
 
@@ -659,7 +773,7 @@ export class GameStateMachine {
       error: undefined,
     });
 
-    return this.transition({ type: 'START_GAME', userId });
+    return this.executeTransition({ type: 'START_GAME', userId });
   }
 
   private async handleRecoverError(): Promise<StateMachineState> {
@@ -689,7 +803,7 @@ export class GameStateMachine {
   private handleError(error: unknown): StateMachineState {
     const gameError: GameError =
       error instanceof Error && 'code' in error
-        ? (error as GameError)
+        ? (error as unknown as GameError)
         : this.createError(
             'STATE_CORRUPTED',
             error instanceof Error ? error.message : 'Unknown error'
@@ -932,11 +1046,24 @@ export class GameStateMachine {
     if (!this.eventHandlers.has(eventType)) {
       this.eventHandlers.set(eventType, new Set());
     }
-    this.eventHandlers.get(eventType)!.add(handler);
 
-    // Return unsubscribe function
+    const handlers = this.eventHandlers.get(eventType)!;
+
+    // Prevent unbounded handler accumulation (Issue #14).
+    if (handlers.size >= this.maxHandlersPerEvent) {
+      this.log(`Maximum handlers reached for event: ${eventType}`);
+      return () => {};
+    }
+
+    handlers.add(handler);
+
+    // Return unsubscribe function that also drops the empty bucket so the map
+    // does not grow without bound.
     return () => {
-      this.eventHandlers.get(eventType)?.delete(handler);
+      handlers.delete(handler);
+      if (handlers.size === 0) {
+        this.eventHandlers.delete(eventType);
+      }
     };
   }
 
@@ -961,15 +1088,31 @@ export class GameStateMachine {
   // ==========================================================================
 
   private startAutoSave(): void {
-    if (!this.config.autoSave || this.autoSaveTimer) return;
+    // Always clear any existing timer first so we never leak duplicates.
+    this.stopAutoSave();
+
+    if (!this.config.autoSave) return;
 
     this.autoSaveTimer = setInterval(() => {
       if (this.isPlayable() && this.state.gameState) {
-        this.transition({ type: 'SAVE_GAME' }).catch(e => {
-          this.log(`Auto-save failed: ${e}`);
-        });
+        void this.transition({ type: 'SAVE_GAME' }).then(
+          () => {
+            this.autoSaveFailureCount = 0;
+          },
+          e => {
+            this.log(`Auto-save failed: ${e}`);
+            this.autoSaveFailureCount++;
+            if (this.autoSaveFailureCount >= this.maxAutoSaveFailures) {
+              this.log('Auto-save disabled due to repeated failures');
+              this.stopAutoSave();
+            }
+          }
+        );
       }
     }, this.config.autoSaveInterval);
+
+    // Unref the timer so it never keeps the Node.js process alive (Issue #14).
+    this.autoSaveTimer?.unref?.();
   }
 
   private stopAutoSave(): void {
@@ -977,6 +1120,14 @@ export class GameStateMachine {
       clearInterval(this.autoSaveTimer);
       this.autoSaveTimer = undefined;
     }
+    this.autoSaveFailureCount = 0;
+  }
+
+  private trimChoiceHistory(history: ChoiceHistoryEntry[]): ChoiceHistoryEntry[] {
+    if (history.length <= this.config.maxHistoryLength) {
+      return history;
+    }
+    return history.slice(-this.config.maxHistoryLength);
   }
 
   // ==========================================================================
@@ -1026,6 +1177,7 @@ export class GameStateMachine {
   dispose(): void {
     this.stopAutoSave();
     this.eventHandlers.clear();
+    this.transitionQueue = Promise.resolve();
   }
 
   private log(message: string): void {
@@ -1042,7 +1194,14 @@ export function createGameStateMachine(
   story: Story,
   config?: StateMachineConfig,
   mcpExecutor?: MCPQueryExecutor,
-  saveManager?: SaveManager
+  saveManager?: SaveManager,
+  clarificationHandler?: ClarificationHandler
 ): GameStateMachine {
-  return new GameStateMachine(story, config, mcpExecutor, saveManager);
+  return new GameStateMachine(
+    story,
+    config,
+    mcpExecutor,
+    saveManager,
+    clarificationHandler
+  );
 }
