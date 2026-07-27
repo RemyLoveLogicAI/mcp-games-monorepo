@@ -102,6 +102,8 @@ export class GameStateMachine {
   private saveManager?: SaveManager;
   private autoSaveTimer?: NodeJS.Timeout;
   private autoSaveFailureCount = 0;
+  /** Incremented whenever a save attempt fails, so auto-save can detect failures. */
+  private saveFailureSequence = 0;
 
   /** Serializes public transitions so they never overlap (Issue #14). */
   private transitionQueue: Promise<unknown> = Promise.resolve();
@@ -223,40 +225,42 @@ export class GameStateMachine {
   ): Promise<StateMachineState> {
     this.log(`Transition: ${action.type} from state: ${this.state.type}`);
 
+    // Handlers are awaited here so asynchronous rejections are routed through
+    // handleError instead of escaping this try/catch.
     try {
       switch (action.type) {
         case 'START_GAME':
-          return this.handleStartGame(action.userId);
+          return await this.handleStartGame(action.userId);
 
         case 'LOAD_GAME':
-          return this.handleLoadGame(action.saveData);
+          return await this.handleLoadGame(action.saveData);
 
         case 'MAKE_CHOICE':
-          return this.handleMakeChoice(action.choiceId);
+          return await this.handleMakeChoice(action.choiceId);
 
         case 'FETCH_MCP_DATA':
-          return this.handleFetchMCPData(action.queries);
+          return await this.handleFetchMCPData(action.queries);
 
         case 'MCP_DATA_RECEIVED':
-          return this.handleMCPDataReceived(action.data);
+          return await this.handleMCPDataReceived(action.data);
 
         case 'MCP_DATA_FAILED':
-          return this.handleMCPDataFailed(action.error);
+          return await this.handleMCPDataFailed(action.error);
 
         case 'SAVE_GAME':
-          return this.handleSaveGame();
+          return await this.handleSaveGame();
 
         case 'SAVE_COMPLETE':
-          return this.handleSaveComplete(action.saveId);
+          return await this.handleSaveComplete(action.saveId);
 
         case 'SAVE_FAILED':
-          return this.handleSaveFailed(action.error);
+          return await this.handleSaveFailed(action.error);
 
         case 'RESTART_GAME':
-          return this.handleRestartGame();
+          return await this.handleRestartGame();
 
         case 'RECOVER_ERROR':
-          return this.handleRecoverError();
+          return await this.handleRecoverError();
 
         default:
           throw this.createError('INVALID_CHOICE', `Unknown action type`);
@@ -743,6 +747,8 @@ export class GameStateMachine {
   }
 
   private async handleSaveFailed(error: GameError): Promise<StateMachineState> {
+    this.saveFailureSequence++;
+
     // Return to previous playable state but keep error
     if (this.state.currentScene && this.state.gameState) {
       const availableChoices = this.filterAvailableChoices(
@@ -801,13 +807,12 @@ export class GameStateMachine {
   }
 
   private handleError(error: unknown): StateMachineState {
-    const gameError: GameError =
-      error instanceof Error && 'code' in error
-        ? (error as unknown as GameError)
-        : this.createError(
-            'STATE_CORRUPTED',
-            error instanceof Error ? error.message : 'Unknown error'
-          );
+    const gameError: GameError = this.isGameError(error)
+      ? error
+      : this.createError(
+          'STATE_CORRUPTED',
+          error instanceof Error ? error.message : 'Unknown error'
+        );
 
     this.updateState({
       type: 'error',
@@ -1027,6 +1032,16 @@ export class GameStateMachine {
     this.log(`State updated to: ${this.state.type}`);
   }
 
+  /**
+   * Errors thrown internally are plain `GameError` objects, not `Error`
+   * instances, so structural checking is required to preserve their code.
+   */
+  private isGameError(value: unknown): value is GameError {
+    if (typeof value !== 'object' || value === null) return false;
+    const candidate = value as Partial<GameError>;
+    return typeof candidate.code === 'string' && typeof candidate.message === 'string';
+  }
+
   private createError(code: GameErrorCode, message: string): GameError {
     return {
       code,
@@ -1095,17 +1110,20 @@ export class GameStateMachine {
 
     this.autoSaveTimer = setInterval(() => {
       if (this.isPlayable() && this.state.gameState) {
+        // A failing save resolves (it transitions to SAVE_FAILED or an error
+        // state) rather than rejecting, so failures are detected from the
+        // resulting state instead of the rejection path only.
+        const failuresBefore = this.saveFailureSequence;
         void this.transition({ type: 'SAVE_GAME' }).then(
-          () => {
-            this.autoSaveFailureCount = 0;
+          state => {
+            if (this.saveFailureSequence > failuresBefore || state.type === 'error') {
+              this.recordAutoSaveFailure(state.error?.message ?? 'unknown error');
+            } else {
+              this.autoSaveFailureCount = 0;
+            }
           },
           e => {
-            this.log(`Auto-save failed: ${e}`);
-            this.autoSaveFailureCount++;
-            if (this.autoSaveFailureCount >= this.maxAutoSaveFailures) {
-              this.log('Auto-save disabled due to repeated failures');
-              this.stopAutoSave();
-            }
+            this.recordAutoSaveFailure(String(e));
           }
         );
       }
@@ -1113,6 +1131,15 @@ export class GameStateMachine {
 
     // Unref the timer so it never keeps the Node.js process alive (Issue #14).
     this.autoSaveTimer?.unref?.();
+  }
+
+  private recordAutoSaveFailure(reason: string): void {
+    this.log(`Auto-save failed: ${reason}`);
+    this.autoSaveFailureCount++;
+    if (this.autoSaveFailureCount >= this.maxAutoSaveFailures) {
+      this.log('Auto-save disabled due to repeated failures');
+      this.stopAutoSave();
+    }
   }
 
   private stopAutoSave(): void {
