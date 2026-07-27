@@ -12,7 +12,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import type { Story, Choice, SceneMCPQuery } from 'shared-types';
+import type { Story, Choice, SceneMCPQuery } from 'shared-types-snapshot';
 import { GameStateMachine, createGameStateMachine } from './GameStateMachine';
 import { AmbiguityDetector } from '../dialogue/AmbiguityDetector';
 import { ClarificationHandler } from '../dialogue/ClarificationHandler';

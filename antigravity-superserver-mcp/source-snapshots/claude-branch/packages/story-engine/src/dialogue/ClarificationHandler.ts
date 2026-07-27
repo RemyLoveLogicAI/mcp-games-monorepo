@@ -5,7 +5,7 @@
  * (either a numbered selection or a rephrased answer) back to a single Choice.
  */
 
-import type { Choice } from 'shared-types';
+import type { Choice } from 'shared-types-snapshot';
 import { AmbiguityDetector } from './AmbiguityDetector';
 
 export interface ClarificationRequest {

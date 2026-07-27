@@ -12,7 +12,7 @@
     "noEmit": true,
     "types": ["node", "vitest/globals"],
     "paths": {
-      "shared-types": ["../shared-types/src/index.ts"]
+      "shared-types-snapshot": ["../shared-types/src/index.ts"]
     }
   },
   "include": ["src/**/*.ts"]

@@ -14,7 +14,7 @@ import type {
   SaveMetadata,
   SaveSlot,
   Result,
-} from 'shared-types';
+} from 'shared-types-snapshot';
 
 /**
  * Storage adapter interface

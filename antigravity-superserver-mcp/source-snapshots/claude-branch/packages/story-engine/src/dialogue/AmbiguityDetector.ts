@@ -4,7 +4,7 @@
  * instead of silently guessing (Issue #15).
  */
 
-import type { Choice } from 'shared-types';
+import type { Choice } from 'shared-types-snapshot';
 
 export interface AmbiguityDetectionResult {
   isAmbiguous: boolean;

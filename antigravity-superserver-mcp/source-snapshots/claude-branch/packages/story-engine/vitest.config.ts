@@ -10,7 +10,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      'shared-types': resolve(__dirname, '../shared-types/src/index.ts'),
+      'shared-types-snapshot': resolve(__dirname, '../shared-types/src/index.ts'),
     },
   },
 });

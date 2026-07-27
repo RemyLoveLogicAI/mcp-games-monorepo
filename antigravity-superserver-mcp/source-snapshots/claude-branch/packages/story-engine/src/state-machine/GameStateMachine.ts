@@ -42,7 +42,7 @@ import type {
   GameEvent,
   EventHandler,
   MCPError,
-} from 'shared-types';
+} from 'shared-types-snapshot';
 import { AmbiguityDetector } from '../dialogue/AmbiguityDetector';
 import {
   ClarificationHandler,
