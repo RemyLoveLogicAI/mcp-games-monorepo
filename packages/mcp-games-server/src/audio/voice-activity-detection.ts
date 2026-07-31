@@ -99,8 +99,8 @@ export class VoiceActivityDetector extends EventEmitter {
       // Voice activity detection logic
       const energyAboveThreshold = energy > adaptiveThreshold;
       const spectralSignature =
-        spectralCentroid > 800 && spectralCentroid < 4000; // Voice frequencies
-      const zeroCrossingSignature = zeroCrossingRate > 0.1; // Voice has moderate crossing rate
+        spectralCentroid > 250 && spectralCentroid < 4000; // Voice frequencies (lowered from 800)
+      const zeroCrossingSignature = zeroCrossingRate > 0.03; // Voice has moderate crossing rate (lowered from 0.1)
 
       const isVoiceActive =
         energyAboveThreshold &&
@@ -234,15 +234,13 @@ export class VoiceActivityDetector extends EventEmitter {
   }
 
   private calculateSpectralCentroid(pcmData: Float32Array): number {
-    // Simplified spectral centroid calculation
-    // In production, would use FFT for accuracy
-
     const spectrum = this.calculateSpectrum(pcmData);
+    const targetFrequencies = [250, 500, 1000, 1500, 2000, 2500, 3000, 4000];
     let weightedSum = 0;
     let magnitudeSum = 0;
 
     spectrum.forEach((magnitude, binIndex) => {
-      const frequency = (binIndex * this.config.sampleRate) / spectrum.length;
+      const frequency = targetFrequencies[binIndex];
       weightedSum += frequency * magnitude;
       magnitudeSum += magnitude;
     });
@@ -266,24 +264,20 @@ export class VoiceActivityDetector extends EventEmitter {
   }
 
   private calculateSpectrum(pcmData: Float32Array): number[] {
-    // Simplified spectrum calculation using energy in bands
-    // In production, would use FFT
-
     const bands = 8;
     const spectrum = new Array(bands).fill(0);
-    const samplesPerBand = Math.floor(pcmData.length / bands);
+    const targetFrequencies = [250, 500, 1000, 1500, 2000, 2500, 3000, 4000];
 
     for (let band = 0; band < bands; band++) {
-      let energy = 0;
-      const startIdx = band * samplesPerBand;
-      const endIdx =
-        band === bands - 1 ? pcmData.length : (band + 1) * samplesPerBand;
-
-      for (let i = startIdx; i < endIdx; i++) {
-        energy += Math.abs(pcmData[i]);
+      const freq = targetFrequencies[band];
+      let real = 0;
+      let imag = 0;
+      for (let n = 0; n < pcmData.length; n++) {
+        const angle = (2 * Math.PI * freq * n) / this.config.sampleRate;
+        real += pcmData[n] * Math.cos(angle);
+        imag -= pcmData[n] * Math.sin(angle);
       }
-
-      spectrum[band] = energy / samplesPerBand;
+      spectrum[band] = Math.sqrt(real * real + imag * imag) / pcmData.length;
     }
 
     return spectrum;

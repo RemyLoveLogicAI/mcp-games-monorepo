@@ -1,6 +1,7 @@
 import { EventEmitter } from 'events';
 import { v4 as uuidv4 } from 'uuid';
 import { telemetry } from '../observability/index.js';
+import { getWebRTCRuntime } from './runtime.js';
 
 // ═══════════════════════════════════════════════════════════
 // TYPES
@@ -89,6 +90,7 @@ export class PeerConnectionManager extends EventEmitter {
         throw new Error('Peer connection already initialized');
       }
 
+      const { RTCPeerConnection } = getWebRTCRuntime();
       const peerConnection = new RTCPeerConnection({
         iceServers: this.config.iceServers,
         bundlePolicy: this.config.bundlePolicy || 'max-bundle',
@@ -188,6 +190,7 @@ export class PeerConnectionManager extends EventEmitter {
     }
 
     try {
+      const { RTCSessionDescription } = getWebRTCRuntime();
       const offer = new RTCSessionDescription({
         type: 'offer',
         sdp: offerSdp,
@@ -232,6 +235,7 @@ export class PeerConnectionManager extends EventEmitter {
     }
 
     try {
+      const { RTCSessionDescription } = getWebRTCRuntime();
       const answer = new RTCSessionDescription({
         type: 'answer',
         sdp: answerSdp,
@@ -261,6 +265,7 @@ export class PeerConnectionManager extends EventEmitter {
     }
 
     try {
+      const { RTCIceCandidate } = getWebRTCRuntime();
       const rtcCandidate = new RTCIceCandidate({
         candidate: candidate.candidate,
         sdpMLineIndex: candidate.sdpMLineIndex,

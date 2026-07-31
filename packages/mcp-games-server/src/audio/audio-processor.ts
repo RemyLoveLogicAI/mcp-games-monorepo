@@ -134,7 +134,7 @@ export class AudioProcessor extends EventEmitter {
   async processAudioFrame(
     pcmData: Float32Array
   ): Promise<ProcessedAudioFrame | null> {
-    const processingStartTime = Date.now();
+    const processingStartTime = performance.now();
 
     try {
       let workingData = pcmData;
@@ -152,7 +152,7 @@ export class AudioProcessor extends EventEmitter {
             processorId: this.processorId,
           });
 
-          const processingTime = Date.now() - processingStartTime;
+          const processingTime = performance.now() - processingStartTime;
           this.recordProcessingTime(processingTime);
 
           return null; // Skip encoding silent frames
@@ -194,7 +194,7 @@ export class AudioProcessor extends EventEmitter {
 
       // Calculate metrics
       const outputLevel = this.measureLevel(workingData);
-      const processingTime = Date.now() - processingStartTime;
+      const processingTime = performance.now() - processingStartTime;
 
       this.recordProcessingTime(processingTime);
 

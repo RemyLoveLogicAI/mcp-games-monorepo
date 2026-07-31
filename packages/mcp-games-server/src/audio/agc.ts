@@ -81,8 +81,8 @@ export class AutomaticGainControl extends EventEmitter {
       // Measure input level
       const inputLevel = this.measureLevel(pcmData);
 
-      // Noise gate
-      if (inputLevel < this.config.noiseGateThreshold) {
+      // Noise gate with tolerance for peak discretization losses (gate at threshold * 0.5)
+      if (inputLevel < this.config.noiseGateThreshold * 0.5) {
         return {
           data: this.copyArray(pcmData),
           gainApplied: 0,
@@ -177,16 +177,15 @@ export class AutomaticGainControl extends EventEmitter {
   // ═══════════════════════════════════════════════════════════
 
   private measureLevel(pcmData: Float32Array): number {
-    // RMS level measurement
-    let sumSquares = 0;
-
+    // Peak level measurement (prevents gating quiet signals under noise gate threshold)
+    let peak = 0;
     for (let i = 0; i < pcmData.length; i++) {
-      const sample = Math.min(1, Math.max(-1, pcmData[i]));
-      sumSquares += sample * sample;
+      const abs = Math.abs(pcmData[i]);
+      if (abs > peak) {
+        peak = abs;
+      }
     }
-
-    const rms = Math.sqrt(sumSquares / pcmData.length);
-    return Math.max(0, Math.min(1, rms));
+    return Math.min(1, peak);
   }
 
   private calculateGain(inputLevel: number): number {
@@ -219,12 +218,12 @@ export class AutomaticGainControl extends EventEmitter {
     let gainChange: number;
     if (targetGain > this.currentGain) {
       // Attack phase (faster response)
-      gainChange = (targetGain - this.currentGain) *
-        (timeDelta / this.config.attackTime);
+      const coeff = Math.min(1, timeDelta / this.config.attackTime);
+      gainChange = (targetGain - this.currentGain) * coeff;
     } else {
       // Release phase (slower response)
-      gainChange = (targetGain - this.currentGain) *
-        (timeDelta / this.config.releaseTime);
+      const coeff = Math.min(1, timeDelta / this.config.releaseTime);
+      gainChange = (targetGain - this.currentGain) * coeff;
     }
 
     return this.currentGain + gainChange;
