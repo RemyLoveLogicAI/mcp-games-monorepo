@@ -1,5 +1,16 @@
 {
-  "extends": ["./.eslintrc.json"],
+  "extends": ["./.eslintrc.js"],
+  "ignorePatterns": [
+    "dist",
+    "node_modules",
+    "*.js",
+    "antigravity-superserver-mcp",
+    "workspace",
+    "cache",
+    "backup",
+    "vitest.config.ts",
+    "*.config.ts"
+  ],
   "plugins": ["security"],
   "rules": {
     "security/detect-object-injection": "warn",
@@ -41,6 +52,9 @@
   "overrides": [
     {
       "files": ["*.ts", "*.tsx"],
+      "parserOptions": {
+        "project": true
+      },
       "rules": {
         "@typescript-eslint/no-explicit-any": "error",
         "@typescript-eslint/no-unsafe-assignment": "error",
