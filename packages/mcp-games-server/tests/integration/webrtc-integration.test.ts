@@ -258,7 +258,8 @@ describe('WebRTC Integration Suite', () => {
       });
       await manager.initialize();
 
-      iceManager = createICEManager(manager.peerConnection as any);
+      expect(manager.peerConnectionInstance).not.toBeNull();
+      iceManager = createICEManager(manager.peerConnectionInstance!);
     });
 
     afterEach(() => {

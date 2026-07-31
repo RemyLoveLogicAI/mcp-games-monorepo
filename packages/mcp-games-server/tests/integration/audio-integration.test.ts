@@ -473,15 +473,9 @@ describe('Audio Processing Integration Suite', () => {
 
     it('should decode audio frame', async () => {
       const audio = createSyntheticAudio(20, 16000);
-      const frame = {
-        data: new Uint8Array(audio.buffer),
-        timestamp: Date.now(),
-        duration: 20,
-        sampleCount: audio.length,
-      };
-
-      const encoded = await processor['opusCodec'].encode(frame);
-      const decoded = await processor.decodeAudioFrame(encoded);
+      const result = await processor.processAudioFrame(audio);
+      expect(result).not.toBeNull();
+      const decoded = await processor.decodeAudioFrame(result!.encoded);
 
       expect(decoded.pcm).toBeDefined();
       expect(decoded.pcm).toBeInstanceOf(Float32Array);

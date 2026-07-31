@@ -49,6 +49,7 @@ turn the current solid baseline into the complete super-server vision.
   `dist/.openai/drizzle`.
 - A maintained Node WebRTC implementation (`@roamhq/wrtc`) is wired via a clean `runtime.ts` factory wrapper to support native W3C peer connection constructors under Node.js.
 - Audio DSP analysis gates are corrected: voice activity detection uses an 8-band DFT frequency estimation instead of time-sliced segments, AGC uses peak amplitude measurement with a 50% noise gate tolerance, and smoothing coefficients are clamped.
+- Unified Jest and Vitest test harnesses under one command (`pnpm test` / `pnpm --filter @omnigents/mcp-games-server test`) and cleaned up private property access on WebRTC and Audio components to maintain strict type safety.
 
 ## Verification snapshot
 
@@ -67,6 +68,7 @@ turn the current solid baseline into the complete super-server vision.
 - Live default-game load plus server `/health` and `/ready`: passed.
 - WebRTC integration tests: 30/30 passed.
 - Audio processing integration tests: 28/28 passed.
+- Uncached `pnpm test` root execution: 21/21 tasks passed, including unified Jest unit and Vitest integration suites.
 - Container execution was not verified locally because the Colima Docker daemon
   was not running.
 - Root Git history was safely restored from the authoritative
@@ -145,17 +147,6 @@ Acceptance criteria:
 - Pattern recommendations cite the executions that support them.
 - Users can promote, scope, revoke, and audit automation rights.
 - Autonomous execution has approval, rollback, and permission-boundary tests.
-
-### P0 — Unify the mixed Jest/Vitest integration harness
-
-Some legacy integration suites import Vitest while running under Jest and one
-suite reaches into a private peer connection.
-
-Acceptance criteria:
-
-- One documented package command runs unit, audio, and WebRTC suites.
-- No suite imports a missing test framework or accesses private members.
-- CI runs the full suite without compile-time harness failures.
 
 ### P1 — Make the Docker topology prove the actual transport
 
