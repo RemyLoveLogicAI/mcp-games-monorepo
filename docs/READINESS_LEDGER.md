@@ -1,6 +1,6 @@
 # MCP Games Readiness Ledger
 
-Last updated: 2026-07-25
+Last updated: 2026-07-30
 
 This is the durable source of truth for the flagship MCP Games launch. It records
 what is operational now, what was verified, and the prioritized work required to
@@ -47,6 +47,8 @@ turn the current solid baseline into the complete super-server vision.
 - Sites packaging is single-flight across vinext's concurrent Vite
   environments, so repeated and uncached builds no longer race on
   `dist/.openai/drizzle`.
+- A maintained Node WebRTC implementation (`@roamhq/wrtc`) is wired via a clean `runtime.ts` factory wrapper to support native W3C peer connection constructors under Node.js.
+- Audio DSP analysis gates are corrected: voice activity detection uses an 8-band DFT frequency estimation instead of time-sliced segments, AGC uses peak amplitude measurement with a 50% noise gate tolerance, and smoothing coefficients are clamped.
 
 ## Verification snapshot
 
@@ -63,6 +65,8 @@ turn the current solid baseline into the complete super-server vision.
 - Forced uncached flagship build and rendered-page test: passed.
 - `docker-compose config --quiet`: passed.
 - Live default-game load plus server `/health` and `/ready`: passed.
+- WebRTC integration tests: 30/30 passed.
+- Audio processing integration tests: 28/28 passed.
 - Container execution was not verified locally because the Colima Docker daemon
   was not running.
 - Root Git history was safely restored from the authoritative
@@ -142,17 +146,6 @@ Acceptance criteria:
 - Users can promote, scope, revoke, and audit automation rights.
 - Autonomous execution has approval, rollback, and permission-boundary tests.
 
-### P0 — Provide a supported Node WebRTC runtime
-
-Twenty of thirty WebRTC integration tests currently fail because
-`RTCPeerConnection` is unavailable in Node.
-
-Acceptance criteria:
-
-- A maintained Node WebRTC implementation is selected and wired, or peer
-  operations move to a documented browser boundary.
-- All thirty WebRTC integration tests pass in CI.
-
 ### P0 — Unify the mixed Jest/Vitest integration harness
 
 Some legacy integration suites import Vitest while running under Jest and one
@@ -207,16 +200,6 @@ Acceptance criteria:
 - Stale concurrent writes are rejected or versioned.
 - Completed sessions are immutable.
 - A restart persistence test passes against the selected durable adapter.
-
-### P1 — Correct audio DSP metrics
-
-Three of twenty-eight audio integration tests report zero voice percentage, AGC
-gain, or processor frame statistics.
-
-Acceptance criteria:
-
-- Representative voiced and quiet frames produce meaningful non-zero metrics.
-- All twenty-eight audio tests pass deterministically.
 
 ### P1 — Add a flagship CI integration gate
 
