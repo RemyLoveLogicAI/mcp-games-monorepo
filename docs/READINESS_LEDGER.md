@@ -98,18 +98,39 @@ Acceptance criteria:
 
 ### P0 — Deploy and bind the production execution plane
 
-The Sites frontend is deployed, but there is no authenticated production
-connector endpoint. The public surface therefore reports the Games transport as
-unavailable.
+Completed 2026-08-01. The owner-only Sites frontend proxies browser game calls
+through its worker to the authenticated Railway connector at
+`https://mcp-games-connector-production.up.railway.app`. The bearer credential is
+stored as a Sites secret and is not exposed to browser JavaScript. The browser
+provides a device-local opaque actor ID, and the connector binds that identity
+to each authenticated request and execution receipt.
+
+Deployment evidence:
+
+- Railway deployment `96638469-a15d-474d-b5ba-0e769674fea5` reached `SUCCESS`
+  with `/ready` as the activation healthcheck.
+- Sites version 4 (`appgver_83de118d2f6081919ccb06f92e02a8d9`) deployed as
+  `appgdep_6a6dfa3fd9588191b707d9afe498956d` with environment revision 1.
+- The direct TLS connector canary passed liveness, dependency readiness,
+  flagship-only CORS, `start_game`, and `make_choice`.
+- The post-deploy Sites-proxy canary started session
+  `1db63c82-f4ff-4e55-83f8-cef91caaa537`, executed choice `energetic`, advanced
+  `wake_up` to `morning_energetic`, and received distinct completed stdio
+  receipts for both tools.
+- Rollback steps are documented in `docs/PRODUCTION_CONNECTOR.md`. A connector
+  rollback was not exercised because this is the service's first known-good
+  production deployment; the Sites correction was exercised by publishing
+  version 4 after version 3 exposed the edge streaming failure.
 
 Acceptance criteria:
 
-- A TLS connector endpoint is deployed and bound into the site build.
-- CORS allows only the flagship origin and requests carry authenticated actor
-  identity.
-- Liveness and execution readiness are distinct.
-- A production canary completes one real start/choice turn.
-- Rollback is documented and exercised.
+- [x] A TLS connector endpoint is deployed and bound into the site runtime.
+- [x] CORS allows only the flagship origin and requests carry authenticated
+      actor identity.
+- [x] Liveness and execution readiness are distinct.
+- [x] A production canary completes one real start/choice turn through the live
+      Sites worker.
+- [x] Rollback is documented; the corrective Sites redeploy path was exercised.
 
 ### P0 — Wire production calendar and weather context adapters
 

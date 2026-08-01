@@ -43,6 +43,12 @@ graceful overlap/draining. After setting the connector variables and generating
 a Railway domain, update the two Sites runtime values and deploy the exact saved
 site version.
 
+Current production connector:
+
+```text
+https://mcp-games-connector-production.up.railway.app
+```
+
 Run the canary with secrets in the environment, never as command arguments:
 
 ```bash
