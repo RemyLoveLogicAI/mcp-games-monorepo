@@ -45,11 +45,28 @@ type Receipt = {
 type JsonObject = Record<string, unknown>;
 
 const connectorUrl =
-  process.env.NEXT_PUBLIC_MCP_CONNECTOR_URL?.replace(/\/$/, "") || "";
+  process.env.NEXT_PUBLIC_MCP_CONNECTOR_URL?.replace(/\/$/, "") ||
+  "/api/connector";
 const autonomousActionsConfigured =
   process.env.NEXT_PUBLIC_MCP_AUTONOMY_ENABLED === "true";
 const localStartCommand = "pnpm build:flagship && pnpm dev";
 const receiptStorageKey = "mcp-games.execution-receipts.v1";
+const actorStorageKey = "mcp-games.actor-id.v1";
+
+function getActorId() {
+  const existing = window.localStorage.getItem(actorStorageKey);
+  if (existing) return existing;
+  const actorId = `site:${crypto.randomUUID()}`;
+  window.localStorage.setItem(actorStorageKey, actorId);
+  return actorId;
+}
+
+function connectorHeaders(includeJson = false): HeadersInit {
+  return {
+    ...(includeJson ? { "content-type": "application/json" } : {}),
+    "x-mcp-actor-id": getActorId(),
+  };
+}
 
 function isObject(value: unknown): value is JsonObject {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -267,6 +284,7 @@ export default function Home() {
       try {
         const response = await fetch(`${connectorUrl}/api/games/health`, {
           signal: controller.signal,
+          headers: connectorHeaders(),
         });
         const payload = (await response.json().catch(() => ({}))) as unknown;
 
@@ -328,7 +346,7 @@ export default function Home() {
     try {
       const response = await fetch(`${connectorUrl}/api/games/sessions`, {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: connectorHeaders(true),
         body: JSON.stringify({ playerId: `web-${crypto.randomUUID()}` }),
       });
       const payload = (await response.json().catch(() => ({}))) as unknown;
@@ -379,7 +397,7 @@ export default function Home() {
         `${connectorUrl}/api/games/sessions/${encodeURIComponent(game.sessionId)}/choices`,
         {
           method: "POST",
-          headers: { "content-type": "application/json" },
+          headers: connectorHeaders(true),
           body: JSON.stringify({ choiceId: choice.id }),
         },
       );

@@ -65,6 +65,7 @@ function summarizePayload(payload: Record<string, unknown>): Record<string, unkn
     'playerId',
     'sessionId',
     'choiceId',
+    'actorId',
     'hostPlayerId',
     'enableVideoToVideo',
     'enableAvatarAgent',
@@ -250,8 +251,7 @@ export class StdioGamesRuntime implements GamesRuntime {
     const workspaceRoot =
       process.env.MCP_GAMES_WORKDIR ?? path.resolve(path.dirname(entry), '../../..');
     const defaultGamePath =
-      process.env.DEFAULT_GAME_PATH ??
-      path.resolve(workspaceRoot, 'games/morning-decision.yaml');
+      process.env.DEFAULT_GAME_PATH ?? path.resolve(workspaceRoot, 'games/morning-decision.yaml');
     const transport = new StdioClientTransport({
       command: process.execPath,
       args: [entry],
@@ -288,11 +288,9 @@ export class StdioGamesRuntime implements GamesRuntime {
     }
 
     try {
-      const result = await this.client.callTool(
-        { name, arguments: args },
-        undefined,
-        { timeout: 15_000 },
-      );
+      const result = await this.client.callTool({ name, arguments: args }, undefined, {
+        timeout: 15_000,
+      });
       return parseToolResult(
         result as unknown as {
           content?: Array<{ type: string; text?: string }>;

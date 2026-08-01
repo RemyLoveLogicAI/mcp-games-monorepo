@@ -64,11 +64,13 @@ provides canonical hashing primitives and the PostgreSQL schema foundation;
 wiring every connector response and side effect into that ledger remains a
 release task tracked in the readiness ledger.
 
-The deployed Sites frontend currently has no hosted connector and therefore
-reports the execution plane as unavailable. Production connector hosting,
-authentication, and strict origin policy are release blockers, not simulated
-features. Calendar and weather adapters are also incomplete, so authored
-fallback context remains visible until verified providers are connected.
+The Sites frontend uses a same-origin worker proxy for production MCP turns. The
+worker holds the connector bearer credential server-side and forwards the
+device-local actor ID; the connector enforces that credential, strict flagship
+CORS, and real stdio readiness. Deployment, canary, and rollback instructions
+live in `docs/PRODUCTION_CONNECTOR.md`. Calendar and weather adapters remain
+incomplete, so authored fallback context remains visible until verified
+providers are connected.
 
 ## MCP server
 

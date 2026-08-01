@@ -1,15 +1,12 @@
-import express, { type Express, type Request, type Response } from 'express';
+import express, { type Express, type NextFunction, type Request, type Response } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { z } from 'zod';
 import { MCPClient } from 'mcp-sdk';
 import path from 'node:path';
 import { existsSync } from 'node:fs';
-import {
-  executeWithReceipt,
-  StdioGamesRuntime,
-  type GamesRuntime,
-} from './games-bridge';
+import { timingSafeEqual } from 'node:crypto';
+import { executeWithReceipt, StdioGamesRuntime, type GamesRuntime } from './games-bridge';
 
 dotenv.config();
 
@@ -49,18 +46,72 @@ const choiceSchema = z.object({
 });
 
 const loadGameSchema = z.object({
-  gameId: z.string().trim().regex(/^[a-z0-9][a-z0-9-]{0,63}$/),
+  gameId: z
+    .string()
+    .trim()
+    .regex(/^[a-z0-9][a-z0-9-]{0,63}$/),
 });
 
 const meshSchema = z.record(z.unknown()).refine((value) => Object.keys(value).length > 0, {
   message: 'A realtime mesh request is required.',
 });
 
-function allowedOrigins(): string[] {
+export interface ConnectorOptions {
+  gamesTimeoutMs?: number;
+  authToken?: string;
+  allowedOrigins?: string[];
+  production?: boolean;
+}
+
+function configuredOrigins(): string[] {
   return (process.env.MCP_CONNECTOR_ALLOWED_ORIGINS || process.env.CORS_ORIGINS || '')
     .split(',')
     .map((origin) => origin.trim())
     .filter(Boolean);
+}
+
+function normalizeOrigin(value: string): string {
+  const url = new URL(value);
+  if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) {
+    throw new Error(`Invalid connector origin: ${value}`);
+  }
+  if (url.pathname !== '/' || url.search || url.hash) {
+    throw new Error(`Connector origins must not include a path, query, or fragment: ${value}`);
+  }
+  return url.origin;
+}
+
+function resolveSecurity(options: ConnectorOptions): {
+  authToken: string | undefined;
+  origins: string[];
+} {
+  const production = options.production ?? process.env.NODE_ENV === 'production';
+  const authToken = options.authToken ?? process.env.MCP_CONNECTOR_AUTH_TOKEN;
+  const configured = options.allowedOrigins ?? configuredOrigins();
+  const origins = [...new Set(configured.map(normalizeOrigin))];
+
+  if (!production) return { authToken, origins };
+
+  if (!authToken || authToken.length < 32) {
+    throw new Error('MCP_CONNECTOR_AUTH_TOKEN must contain at least 32 characters in production.');
+  }
+
+  const flagship = process.env.MCP_GAMES_FLAGSHIP_URL;
+  if (!flagship) {
+    throw new Error('MCP_GAMES_FLAGSHIP_URL is required in production.');
+  }
+  const flagshipOrigin = normalizeOrigin(flagship);
+  if (origins.length !== 1 || origins[0] !== flagshipOrigin) {
+    throw new Error('Production CORS must contain exactly the MCP_GAMES_FLAGSHIP_URL origin.');
+  }
+
+  return { authToken, origins };
+}
+
+function tokensMatch(actual: string, expected: string): boolean {
+  const actualBytes = Buffer.from(actual);
+  const expectedBytes = Buffer.from(expected);
+  return actualBytes.length === expectedBytes.length && timingSafeEqual(actualBytes, expectedBytes);
 }
 
 class GamesTimeoutError extends Error {
@@ -101,17 +152,27 @@ function gamesUnavailable(res: Response, error: unknown): void {
 export function createApp(
   client: MCPClient = new MCPClient(),
   gamesRuntime: GamesRuntime = new StdioGamesRuntime(),
-  options: { gamesTimeoutMs?: number } = {},
+  options: ConnectorOptions = {},
 ): Express {
   const app = express();
-  const origins = allowedOrigins();
+  const { authToken, origins } = resolveSecurity(options);
   const gamesTimeoutMs = options.gamesTimeoutMs ?? 15_000;
   const gamesRoot = process.env.MCP_GAMES_ROOT ?? path.resolve(__dirname, '../../../games');
   const callGames = <T>(operation: Promise<T>): Promise<T> =>
     withDeadline(operation, gamesTimeoutMs);
 
   app.disable('x-powered-by');
-  app.use(cors({ origin: origins.length > 0 ? origins : true }));
+  app.use(
+    cors({
+      origin(origin, callback) {
+        if (!origin || (!origins.length && !authToken) || origins.includes(origin)) {
+          callback(null, true);
+          return;
+        }
+        callback(new Error('Origin is not allowed by the MCP connector.'));
+      },
+    }),
+  );
   app.use(express.json({ limit: '256kb' }));
 
   app.get('/', (_req: Request, res: Response) => {
@@ -139,12 +200,47 @@ export function createApp(
     });
   });
 
-  app.get('/ready', (_req: Request, res: Response) => {
-    res.json({
-      status: 'ready',
-      service: 'mcp-connector',
-      games: { status: gamesRuntime.getStatus(), required: false },
-    });
+  app.get('/ready', async (_req: Request, res: Response) => {
+    try {
+      const server = await callGames(gamesRuntime.health());
+      res.json({
+        status: 'ready',
+        service: 'mcp-connector',
+        games: { status: gamesRuntime.getStatus(), required: true, server },
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'The Games runtime is unavailable.';
+      res.status(503).json({
+        status: 'not_ready',
+        service: 'mcp-connector',
+        games: { status: gamesRuntime.getStatus(), required: true, message },
+      });
+    }
+  });
+
+  app.use('/api', (req: Request, res: Response, next) => {
+    if (authToken) {
+      const authorization = req.header('authorization') ?? '';
+      const supplied = authorization.startsWith('Bearer ') ? authorization.slice(7) : '';
+      if (!supplied || !tokensMatch(supplied, authToken)) {
+        res
+          .status(401)
+          .json({ error: 'unauthorized', message: 'A valid bearer token is required.' });
+        return;
+      }
+    }
+
+    const actorId = req.header('x-mcp-actor-id')?.trim();
+    if (!actorId || !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(actorId)) {
+      res.status(400).json({
+        error: 'invalid_actor',
+        message: 'x-mcp-actor-id is required and must be a stable opaque actor identifier.',
+      });
+      return;
+    }
+    res.locals.actorId = actorId;
+    res.setHeader('x-mcp-actor-id', actorId);
+    next();
   });
 
   app.get('/api', (_req: Request, res: Response) => {
@@ -169,7 +265,9 @@ export function createApp(
   });
 
   app.get('/api/mcp/connections', (_req: Request, res: Response) => {
-    const active = new Map(client.getConnections().map((connection) => [connection.id, connection]));
+    const active = new Map(
+      client.getConnections().map((connection) => [connection.id, connection]),
+    );
     res.json({
       connections: knownServers.map((server) => ({
         ...server,
@@ -329,7 +427,7 @@ export function createApp(
     try {
       const execution = await executeWithReceipt(
         'load_game',
-        { gameId: parsed.data.gameId },
+        { gameId: parsed.data.gameId, actorId: res.locals.actorId },
         () => callGames(gamesRuntime.loadGame(gamePath)),
       );
       res.json({ game: execution.result, receipt: execution.receipt });
@@ -348,7 +446,7 @@ export function createApp(
     try {
       const execution = await executeWithReceipt(
         'start_game',
-        { playerId: parsed.data.playerId },
+        { playerId: parsed.data.playerId, actorId: res.locals.actorId },
         () => callGames(gamesRuntime.startSession(parsed.data.playerId)),
       );
       res.status(201).json({ session: execution.result, receipt: execution.receipt });
@@ -363,7 +461,9 @@ export function createApp(
     if (!sessionId || !parsed.success) {
       res.status(400).json({
         error: 'invalid_request',
-        issues: parsed.success ? [{ path: ['sessionId'], message: 'Required' }] : parsed.error.issues,
+        issues: parsed.success
+          ? [{ path: ['sessionId'], message: 'Required' }]
+          : parsed.error.issues,
       });
       return;
     }
@@ -371,7 +471,7 @@ export function createApp(
     try {
       const execution = await executeWithReceipt(
         'make_choice',
-        { sessionId, choiceId: parsed.data.choiceId },
+        { sessionId, choiceId: parsed.data.choiceId, actorId: res.locals.actorId },
         () => callGames(gamesRuntime.makeChoice(sessionId, parsed.data.choiceId)),
       );
       res.json({ turn: execution.result, receipt: execution.receipt });
@@ -390,13 +490,21 @@ export function createApp(
     try {
       const execution = await executeWithReceipt(
         'plan_realtime_mesh',
-        parsed.data,
+        { ...parsed.data, actorId: res.locals.actorId },
         () => callGames(gamesRuntime.planRealtimeMesh(parsed.data)),
       );
       res.json({ blueprint: execution.result, receipt: execution.receipt });
     } catch (error) {
       gamesUnavailable(res, error);
     }
+  });
+
+  app.use((error: Error, _req: Request, res: Response, next: NextFunction) => {
+    if (error.message === 'Origin is not allowed by the MCP connector.') {
+      res.status(403).json({ error: 'origin_forbidden', message: error.message });
+      return;
+    }
+    next(error);
   });
 
   app.use((_req: Request, res: Response) => {

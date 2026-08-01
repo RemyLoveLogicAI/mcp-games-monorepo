@@ -12,6 +12,8 @@ Protocol services.
 - Auditable execution receipts with response-only persistence metadata
 - Validated semantic-query and user-context response contracts
 - Configurable CORS allowlist for the flagship website
+- Production bearer authentication with required opaque actor identity
+- Process-only liveness and real MCP execution readiness
 
 The Games transport launches the built `@omnigents/mcp-games-server` process and
 uses the official Model Context Protocol client. Other remote adapters and
@@ -50,6 +52,12 @@ website together.
 Action responses include an execution receipt. Receipts are returned to the
 caller but are not persisted by the connector.
 
+Every `/api` request must include `x-mcp-actor-id`. When
+`MCP_CONNECTOR_AUTH_TOKEN` is configured it must also include
+`Authorization: Bearer <token>`. Production startup rejects missing or weak
+credentials and any CORS configuration that is not exactly
+`MCP_GAMES_FLAGSHIP_URL`.
+
 ### Semantic Queries
 
 - `POST /api/mcp/query` - Execute semantic query across MCPs
@@ -66,6 +74,8 @@ MCP_CONNECTOR_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173
 MCP_GAMES_SERVER_ENTRY=/absolute/path/to/packages/mcp-games-server/dist/index.js
 MCP_GAMES_ROOT=/absolute/path/to/games
 MCP_GAMES_WORKDIR=/absolute/path/to/mcp-games-monorepo
+MCP_CONNECTOR_AUTH_TOKEN=<at-least-32-random-characters>
+MCP_GAMES_FLAGSHIP_URL=https://mcp-games-command-center.lovelogic-ai.chatgpt.site
 ```
 
 `MCP_CONNECTOR_PORT` may be used instead of `PORT`, and `CORS_ORIGINS` is

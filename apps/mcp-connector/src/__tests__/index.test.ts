@@ -95,6 +95,12 @@ describe('MCP Connector', () => {
   let baseUrl: string;
   let gamesRuntime: FakeGamesRuntime;
 
+  const apiFetch = (path: string, init: RequestInit = {}) => {
+    const headers = new Headers(init.headers);
+    headers.set('x-mcp-actor-id', 'test:local-player');
+    return fetch(`${baseUrl}${path}`, { ...init, headers });
+  };
+
   beforeAll(async () => {
     gamesRuntime = new FakeGamesRuntime();
     server = await new Promise<Server>((resolve) => {
@@ -123,7 +129,7 @@ describe('MCP Connector', () => {
   });
 
   it('connects and disconnects an MCP server', async () => {
-    const connect = await fetch(`${baseUrl}/api/mcp/connect/games`, {
+    const connect = await apiFetch('/api/mcp/connect/games', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ capabilities: ['tools'] }),
@@ -144,7 +150,7 @@ describe('MCP Connector', () => {
       },
     });
 
-    const connections = await fetch(`${baseUrl}/api/mcp/connections`);
+    const connections = await apiFetch('/api/mcp/connections');
     expect(await connections.json()).toMatchObject({
       connections: expect.arrayContaining([
         expect.objectContaining({ id: 'games', status: 'connected' }),
@@ -153,7 +159,7 @@ describe('MCP Connector', () => {
 
     expect(
       (
-        await fetch(`${baseUrl}/api/mcp/disconnect/games`, {
+        await apiFetch('/api/mcp/disconnect/games', {
           method: 'DELETE',
         })
       ).status,
@@ -161,7 +167,7 @@ describe('MCP Connector', () => {
   });
 
   it('reports live games health with honest provenance', async () => {
-    const response = await fetch(`${baseUrl}/api/games/health`);
+    const response = await apiFetch('/api/games/health');
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({
       status: 'available',
@@ -179,7 +185,7 @@ describe('MCP Connector', () => {
   });
 
   it('discovers actual MCP tool capabilities', async () => {
-    const response = await fetch(`${baseUrl}/api/games/capabilities`);
+    const response = await apiFetch('/api/games/capabilities');
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({
       tools: expect.arrayContaining([
@@ -197,7 +203,7 @@ describe('MCP Connector', () => {
   });
 
   it('loads allowlisted games and plans a realtime mesh with receipts', async () => {
-    const load = await fetch(`${baseUrl}/api/games/load`, {
+    const load = await apiFetch('/api/games/load', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ gameId: 'morning-decision' }),
@@ -212,7 +218,7 @@ describe('MCP Connector', () => {
       },
     });
 
-    const mesh = await fetch(`${baseUrl}/api/games/mesh/plan`, {
+    const mesh = await apiFetch('/api/games/mesh/plan', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ sessionId: 'mesh-1' }),
@@ -229,7 +235,7 @@ describe('MCP Connector', () => {
   });
 
   it('executes a session and choice with auditable response-only receipts', async () => {
-    const start = await fetch(`${baseUrl}/api/games/sessions`, {
+    const start = await apiFetch('/api/games/sessions', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ playerId: 'local-player' }),
@@ -269,14 +275,11 @@ describe('MCP Connector', () => {
     expect(new Date(startBody.receipt.completedAt).toString()).not.toBe('Invalid Date');
     expect(startBody.receipt.durationMs).toEqual(expect.any(Number));
 
-    const choice = await fetch(
-      `${baseUrl}/api/games/sessions/${startBody.session.sessionId}/choices`,
-      {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ choiceId: 'begin' }),
-      },
-    );
+    const choice = await apiFetch(`/api/games/sessions/${startBody.session.sessionId}/choices`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ choiceId: 'begin' }),
+    });
     expect(choice.status).toBe(200);
     expect(await choice.json()).toMatchObject({
       turn: {
@@ -294,14 +297,14 @@ describe('MCP Connector', () => {
   });
 
   it('validates semantic query input and does not fake a games result', async () => {
-    const invalid = await fetch(`${baseUrl}/api/mcp/query`, {
+    const invalid = await apiFetch('/api/mcp/query', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ server: 'games', query: '' }),
     });
     expect(invalid.status).toBe(400);
 
-    const valid = await fetch(`${baseUrl}/api/mcp/query`, {
+    const valid = await apiFetch('/api/mcp/query', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ server: 'games', query: 'Suggest the next move' }),
@@ -317,14 +320,14 @@ describe('MCP Connector', () => {
   });
 
   it('rejects invalid typed game payloads', async () => {
-    const session = await fetch(`${baseUrl}/api/games/sessions`, {
+    const session = await apiFetch('/api/games/sessions', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ playerId: '' }),
     });
     expect(session.status).toBe(400);
 
-    const choice = await fetch(`${baseUrl}/api/games/sessions/session-1/choices`, {
+    const choice = await apiFetch('/api/games/sessions/session-1/choices', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ choiceId: '' }),
@@ -334,7 +337,7 @@ describe('MCP Connector', () => {
 
   it('surfaces upstream failures without fabricating a result', async () => {
     gamesRuntime.failure = new Error('upstream process exited');
-    const response = await fetch(`${baseUrl}/api/games/health`);
+    const response = await apiFetch('/api/games/health');
     gamesRuntime.failure = null;
 
     expect(response.status).toBe(503);
@@ -346,13 +349,74 @@ describe('MCP Connector', () => {
 
   it('returns a bounded timeout when the MCP process stalls', async () => {
     gamesRuntime.delayMs = 30;
-    const response = await fetch(`${baseUrl}/api/games/health`);
+    const response = await apiFetch('/api/games/health');
     gamesRuntime.delayMs = 0;
 
     expect(response.status).toBe(504);
     expect(await response.json()).toMatchObject({
       error: 'games_timeout',
       message: expect.stringContaining('did not respond within 10ms'),
+    });
+  });
+
+  it('requires authenticated actor identity when production auth is configured', async () => {
+    const authRuntime = new FakeGamesRuntime();
+    const authServer = await new Promise<Server>((resolve) => {
+      const listener = createApp(new MCPClient(), authRuntime, {
+        authToken: 'test-production-token-with-at-least-32-characters',
+        allowedOrigins: ['https://flagship.example'],
+        production: false,
+      }).listen(0, '127.0.0.1', () => resolve(listener));
+    });
+    const authUrl = `http://127.0.0.1:${(authServer.address() as AddressInfo).port}`;
+
+    try {
+      expect((await fetch(`${authUrl}/api/games/health`)).status).toBe(401);
+      expect(
+        (
+          await fetch(`${authUrl}/api/games/health`, {
+            headers: { authorization: 'Bearer test-production-token-with-at-least-32-characters' },
+          })
+        ).status,
+      ).toBe(400);
+      expect(
+        (
+          await fetch(`${authUrl}/api/games/health`, {
+            headers: {
+              authorization: 'Bearer test-production-token-with-at-least-32-characters',
+              'x-mcp-actor-id': 'site:actor-1',
+              origin: 'https://flagship.example',
+            },
+          })
+        ).status,
+      ).toBe(200);
+      expect(
+        (
+          await fetch(`${authUrl}/api/games/health`, {
+            headers: {
+              authorization: 'Bearer test-production-token-with-at-least-32-characters',
+              'x-mcp-actor-id': 'site:actor-1',
+              origin: 'https://other.example',
+            },
+          })
+        ).status,
+      ).toBe(403);
+    } finally {
+      await new Promise<void>((resolve, reject) => {
+        authServer.close((error) => (error ? reject(error) : resolve()));
+      });
+    }
+  });
+
+  it('reports not ready when the real Games dependency fails', async () => {
+    gamesRuntime.failure = new Error('upstream process exited');
+    const response = await fetch(`${baseUrl}/ready`);
+    gamesRuntime.failure = null;
+
+    expect(response.status).toBe(503);
+    expect(await response.json()).toMatchObject({
+      status: 'not_ready',
+      games: { required: true, message: 'upstream process exited' },
     });
   });
 });

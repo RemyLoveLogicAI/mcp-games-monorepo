@@ -16,6 +16,7 @@
     "prestart:connector": "pnpm --filter @omnigents/mcp-games-server build",
     "start:connector": "pnpm --dir apps/mcp-connector start",
     "start:mcp": "pnpm --dir packages/mcp-games-server start",
+    "canary:connector": "node scripts/canary-production-connector.mjs",
     "lint": "turbo run lint",
     "lint:security": "eslint --config .eslintrc.security.json \"**/*.{js,jsx,ts,tsx}\"",
     "test": "turbo run test",
