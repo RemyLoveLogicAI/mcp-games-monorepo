@@ -81,7 +81,8 @@ async function proxyConnector(request: Request, env: Env): Promise<Response> {
     if (value) responseHeaders.set(name, value);
   }
   responseHeaders.set("cache-control", "no-store");
-  return new Response(upstream.body, { status: upstream.status, headers: responseHeaders });
+  const body = await upstream.arrayBuffer();
+  return new Response(body, { status: upstream.status, headers: responseHeaders });
 }
 
 interface ExecutionContext {
