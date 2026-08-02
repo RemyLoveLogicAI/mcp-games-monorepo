@@ -40,6 +40,7 @@ export class RateLimiter {
   private redis: Redis;
   private config: RateLimitConfig;
   private cpuUsageCache: number = 50; // Start at 50%
+  private cpuMonitorInterval?: NodeJS.Timeout;
 
   constructor(redis: Redis, config: RateLimitConfig) {
     this.redis = redis;
@@ -51,7 +52,7 @@ export class RateLimiter {
    * Monitor CPU usage and adjust limits dynamically
    */
   private startCPUMonitoring(): void {
-    setInterval(async () => {
+    this.cpuMonitorInterval = setInterval(async () => {
       try {
         const cpus = os.cpus();
         let totalIdle = 0;
@@ -74,6 +75,17 @@ export class RateLimiter {
         // Silently ignore CPU monitoring errors
       }
     }, 10000); // Check every 10 seconds
+  }
+
+  /**
+   * Stop background monitoring and release resources.
+   * Call this when the RateLimiter is no longer needed to prevent timer leaks.
+   */
+  destroy(): void {
+    if (this.cpuMonitorInterval) {
+      clearInterval(this.cpuMonitorInterval);
+      this.cpuMonitorInterval = undefined;
+    }
   }
 
   /**

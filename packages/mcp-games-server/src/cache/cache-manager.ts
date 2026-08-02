@@ -27,6 +27,7 @@ export class CacheManager extends EventEmitter {
   private redis: Redis;
   private hitCount: number = 0;
   private missCount: number = 0;
+  private monitorInterval?: NodeJS.Timeout;
 
   // Cache layer configurations
   private objectCacheTTL = 5 * 60; // 5 minutes
@@ -43,7 +44,7 @@ export class CacheManager extends EventEmitter {
    * Start cache monitoring (track hit rates, memory usage)
    */
   private startMonitoring(): void {
-    setInterval(async () => {
+    this.monitorInterval = setInterval(async () => {
       const stats = this.getStats();
       telemetry.emit('cache:stats', {
         hitRate: stats.hitRate.toFixed(2),
@@ -241,6 +242,18 @@ export class CacheManager extends EventEmitter {
       hitRate,
       totalRequests,
     };
+  }
+
+  /**
+   * Stop background monitoring and release resources.
+   * Call this when the CacheManager is no longer needed to prevent timer leaks.
+   */
+  destroy(): void {
+    if (this.monitorInterval) {
+      clearInterval(this.monitorInterval);
+      this.monitorInterval = undefined;
+    }
+    this.removeAllListeners();
   }
 
   /**
