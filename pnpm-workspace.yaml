@@ -1,3 +1,4 @@
 packages:
   - 'packages/*'
   - 'apps/*'
+  - 'antigravity-superserver-mcp/source-snapshots/claude-branch/packages/*'

@@ -34,6 +34,7 @@ export class TurnExecutor {
   private roundStates: Map<string, RoundState> = new Map();
   private actionTimeout = 60 * 1000; // 60 seconds
   private agent: SelfAwareAgent | null;
+  private timeoutMonitorInterval?: NodeJS.Timeout;
 
   constructor(redis: Redis, agent?: SelfAwareAgent) {
     this.redis = redis;
@@ -293,7 +294,7 @@ export class TurnExecutor {
    * Monitor and handle player timeouts
    */
   private startTimeoutMonitor(): void {
-    setInterval(async () => {
+    this.timeoutMonitorInterval = setInterval(async () => {
       try {
         const now = Date.now();
 
@@ -321,6 +322,18 @@ export class TurnExecutor {
         });
       }
     }, 5000); // Check every 5 seconds
+  }
+
+  /**
+   * Stop the timeout monitor and release resources.
+   * Call this when the TurnExecutor is no longer needed to prevent timer leaks.
+   */
+  destroy(): void {
+    if (this.timeoutMonitorInterval) {
+      clearInterval(this.timeoutMonitorInterval);
+      this.timeoutMonitorInterval = undefined;
+    }
+    this.roundStates.clear();
   }
 }
 
