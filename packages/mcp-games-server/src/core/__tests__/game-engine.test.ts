@@ -15,9 +15,21 @@ describe('GameEngine', () => {
         mockGame = {
             id: 'test-game',
             title: 'Test Game',
+            description: 'A test game',
+            author: 'Test Author',
             version: '1.0.0',
-            scenes: [
-                {
+            startScene: 'start',
+            endings: {
+                end: {
+                    id: 'end',
+                    title: 'End',
+                    narrative: 'The end.',
+                    type: 'neutral'
+                }
+            },
+            contextPermissions: {},
+            scenes: {
+                start: {
                     id: 'start',
                     title: 'Start Scene',
                     narrative: 'You start here.',
@@ -25,15 +37,13 @@ describe('GameEngine', () => {
                         { id: 'c1', text: 'Go forward', targetScene: 'end' }
                     ]
                 },
-                {
+                end: {
                     id: 'end',
                     title: 'End Scene',
                     narrative: 'You ended here.',
                     choices: []
                 }
-            ],
-            globalStateSchema: {},
-            initialState: {}
+            }
         };
     });
 
