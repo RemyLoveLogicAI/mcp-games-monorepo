@@ -102,7 +102,7 @@ export function safeJsonParse<T>(
       
       // Only log content if explicitly enabled (security consideration)
       if (logContent && jsonString.length < 500) {
-        logger.debug('Invalid JSON content:', jsonString.slice(0, 200));
+        logger.debug({ content: jsonString.slice(0, 200) }, 'Invalid JSON content');
       }
     }
     
