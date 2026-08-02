@@ -46,6 +46,9 @@ Context-aware Choose Your Own Adventure games that inject real-time player conte
 - 💬 Telegram bot interface
 - 🔄 Real-time context injection from MCPs
 
+### Live Demo
+- **[https://mcp-games-pyqtlryc.devinapps.com](https://mcp-games-pyqtlryc.devinapps.com)** — play the static `Activation` story in `apps/cyoa-engine`
+
 ## Quick Start
 
 ### Prerequisites
@@ -58,8 +61,8 @@ Context-aware Choose Your Own Adventure games that inject real-time player conte
 
 ```bash
 # Clone the repo
-git clone https://github.com/omnigents/omnigents.git
-cd omnigents
+git clone https://github.com/RemyLoveLogicAI/mcp-games-monorepo.git
+cd mcp-games-monorepo
 
 # Install dependencies
 pnpm install
