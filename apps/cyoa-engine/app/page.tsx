@@ -35,12 +35,12 @@ export default function Home() {
             </div>
           </div>
           <div className="mt-8 flex gap-4">
-            <button className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded-lg">
+            <a href="/game" className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded-lg">
               Start Adventure
-            </button>
-            <button className="bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-6 rounded-lg">
-              Configure MCPs
-            </button>
+            </a>
+            <a href="https://github.com/RemyLoveLogicAI/mcp-games-monorepo" target="_blank" rel="noopener" className="bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-6 rounded-lg">
+              View Repo
+            </a>
           </div>
         </div>
       </div>
