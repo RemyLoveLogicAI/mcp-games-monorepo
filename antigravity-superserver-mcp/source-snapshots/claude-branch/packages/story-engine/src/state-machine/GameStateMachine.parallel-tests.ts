@@ -183,6 +183,50 @@ describe('Issue #14: Memory leaks', () => {
     expect(timer?.hasRef?.()).toBe(false);
     machine.dispose();
   });
+
+  it('disables auto-save after repeated save failures', async () => {
+    const saveManager = {
+      save: vi.fn(async () => {
+        throw new Error('disk full');
+      }),
+      load: vi.fn(),
+      list: vi.fn(),
+      delete: vi.fn(),
+    } as unknown as Parameters<typeof createGameStateMachine>[3];
+
+    const machine = createGameStateMachine(
+      makeStory(),
+      { autoSave: true, autoSaveInterval: 5 },
+      undefined,
+      saveManager
+    );
+
+    await machine.transition({ type: 'START_GAME', userId: 'user1' });
+    await new Promise(resolve => setTimeout(resolve, 120));
+
+    expect(
+      (machine as unknown as { autoSaveTimer?: unknown }).autoSaveTimer
+    ).toBeUndefined();
+    machine.dispose();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Issue #14 - Error reporting
+// ---------------------------------------------------------------------------
+
+describe('Issue #14: Error reporting', () => {
+  it('preserves the original game error code instead of reporting STATE_CORRUPTED', async () => {
+    const machine = createGameStateMachine(makeStory(), { autoSave: false });
+
+    await machine.transition({ type: 'START_GAME', userId: 'user1' });
+    await machine.transition({ type: 'MAKE_CHOICE', choiceId: 'does-not-exist' });
+
+    const error = machine.getError();
+    expect(error?.code).toBe('INVALID_CHOICE');
+    expect(error?.recoverable).toBe(true);
+    machine.dispose();
+  });
 });
 
 // ---------------------------------------------------------------------------
