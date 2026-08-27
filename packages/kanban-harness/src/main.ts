@@ -2,20 +2,16 @@ import { HarnessDB } from "./schemas/HarnessDB";
 import { TickDispatcher } from "./dispatcher/TickDispatcher";
 import { WorkerLoop } from "./WorkerLoop";
 import { createHarnessServer } from "./server/HarnessServer";
+import { logTaskHandler } from "./handlers/LogTaskHandler";
 
 const PORT = parseInt(process.env.HARNESS_PORT ?? "8794", 10);
 const TICK_MS = parseInt(process.env.HARNESS_TICK_MS ?? "1000", 10);
 
 const db = new HarnessDB("var/harness.db");
 
-// Default handler: log the task (replace with real handler)
-const handler = async (task: any) => {
-  console.log(`[tick] Processing task: ${task.id} — ${task.title}`);
-  // Simulate work
-  await new Promise((r) => setTimeout(r, 100));
-};
+// Real handler: processes tasks via LogTaskHandler
+const dispatcher = new TickDispatcher(db, logTaskHandler);
 
-const dispatcher = new TickDispatcher(db, handler);
 const worker = new WorkerLoop(dispatcher, {
   intervalMs: TICK_MS,
   onTick: (result) => {
@@ -40,7 +36,6 @@ const shutdown = () => {
 process.on("SIGTERM", shutdown);
 process.on("SIGINT", shutdown);
 
-// Start worker loop
 worker.start().then(() => {
   console.log(`[kanban-harness] Worker loop running — ${TICK_MS}ms tick interval`);
   console.log(`[kanban-harness] HTTP control plane on http://localhost:${PORT}`);
