@@ -1,0 +1,6 @@
+interface:
+  display_name: "Mcp Games Monorepo"
+  short_description: "Repo-specific patterns and workflows for mcp-games-monorepo"
+  default_prompt: "Use the mcp-games-monorepo repo skill to follow existing architecture, testing, and workflow conventions."
+policy:
+  allow_implicit_invocation: true
