@@ -1,86 +1,112 @@
-# mcp-games-monorepo — Roadmap
+# ROADMAP
 
-## Milestone: v1.0 — Security Hardening + Stability
+> Phase-based execution plan. Cadence enforces: plan → execute → verify → gate.
+> No phase starts until the previous gate passes adversarial review.
 
-Target: resolve all critical/high security issues, stabilize state machine,
-then ship dialogue fixes and dependency updates.
+## Phase 0 — Security Hardening
+**Goal:** Close all CRITICAL vulnerabilities before any new feature work.
+**Gate:** SEC-01 and SEC-02 tests green; manual pentest of GameStateMachine + API auth layer.
 
----
+| Step | Task | Req | Owner |
+|------|------|-----|-------|
+| 0.1 | Replace `new Function()` with safe dispatch in GameStateMachine | SEC-01 | |
+| 0.2 | Write injection tests for GameStateMachine | SEC-01 | |
+| 0.3 | Implement JWT/API-key middleware on all `/api/*` routes | SEC-02 | |
+| 0.4 | Write auth tests (401/403/200 matrix) | SEC-02 | |
+| 0.5 | Run full vitest suite — all pass | SEC-01, SEC-02 | |
+| 0.6 | Adversarial review: have a subagent red-team the changes | SEC-01, SEC-02 | |
 
-### P1 — Security Fixes (CRITICAL, blocks all other work)
-
-| Req | Issue(s) | Title | Severity | Package |
-|-----|---------|-------|----------|---------|
-| R1  | #5, #7  | Eliminate code injection via `new Function()` in GameStateMachine | CRITICAL | story-engine |
-| R2  | #6, #9  | Add authentication + authorization to API endpoints | CRITICAL | mcp-games-server |
-| R3  | #8, #11 | Implement PCI-DSS compliance: incident response + access control | HIGH | mcp-games-server |
-
-**Acceptance:**
-- R1: No `new Function()` or `eval()` anywhere in the codebase. GameStateMachine uses a safe dispatch table. Test: inject malicious payload, verify rejection.
-- R2: All API endpoints require auth token. Unauthorized requests return 401. Test: curl without token → 401.
-- R3: Access control matrix documented. Incident response playbook in repo. Audit log functional.
-
----
-
-### P2 — Stability (MEDIUM, after P1)
-
-| Req | Issue(s) | Title | Severity | Package |
-|-----|---------|-------|----------|---------|
-| R4  | #10, #14 | Fix race conditions + memory leaks in GameStateMachine | MEDIUM | story-engine |
-| R5  | #12, #15 | Fix dialogue manager ambiguous response handling | MEDIUM | story-engine |
-
-**Acceptance:**
-- R4: No unbounded growth in state machine transitions. Concurrent tick test passes under load (100 parallel ticks). Memory profile flat over 10k ticks.
-- R5: Ambiguous responses resolve deterministically. No infinite conversation loops. Test: feed ambiguous input, verify single resolved path.
+**Estimated effort:** 2–3 sessions
+**Hard dependency:** Nothing from Phase 1+ ships until 0.6 passes.
 
 ---
 
-### P3 — Dependency Hygiene (LOW, after P2)
+## Phase 1 — Compliance
+**Goal:** PCI-DSS access control + incident response runbook in place.
+**Gate:** RBAC test matrix green; runbook reviewed and merged.
 
-| Req | Issue(s) | Title | Severity | Package |
-|-----|---------|-------|----------|---------|
-| R6  | #56    | Bump vitest from 2.1.9 → 3.x | LOW | root |
-| R7  | (ongoing) | Deduplicate duplicate issues (#5↔#7, #6↔#9, #8↔#11, #10↔#14, #12↔#15) | LOW | github |
+| Step | Task | Req | Owner |
+|------|------|-----|-------|
+| 1.1 | Implement RBAC middleware (role definitions + enforcement) | COMP-01 | |
+| 1.2 | Add access logging with append-only log store | COMP-01 | |
+| 1.3 | Write incident response runbook (`.planning/INCIDENT_RESPONSE.md`) | COMP-02 | |
+| 1.4 | Implement anomaly-detection alerting on access logs | COMP-02 | |
+| 1.5 | Run RBAC test matrix | COMP-01 | |
+| 1.6 | Adversarial review: attempt privilege escalation | COMP-01, COMP-02 | |
 
-**Acceptance:**
-- R6: vitest 3.x running, all 23+ tests green, no breaking API changes.
-- R7: Duplicate issues closed with "duplicate of #N" comment. Canonical issue retains all context.
-
----
-
-### P4 — Feature: Kanban-Harness Production Hardening (post-stability)
-
-| Req | Title | Severity | Package |
-|-----|-------|----------|---------|
-| R8  | Add retry/backoff to RealTaskHandler shell failures | medium | kanban-harness |
-| R9  | Add Prometheus metrics endpoint to HarnessServer | medium | kanban-harness |
-| R10 | Add task TTL + auto-cleanup for stale "running" tasks | medium | kanban-harness |
-| R11 | Wire kanban-harness to story-engine as task source | high | kanban-harness → story-engine |
+**Prerequisite:** Phase 0 gate passed.
 
 ---
 
-### P5 — Feature: CYOA Engine Polish (post-hardening)
+## Phase 2 — Stability
+**Goal:** Eliminate race conditions, memory leaks, and dialogue ambiguity bugs.
+**Gate:** Stress tests and concurrency tests green; dialogue test suite passes.
 
-| Req | Title | Severity | Package |
-|-----|-------|----------|---------|
-| R12 | Add story branching visualization to cyoa-engine | medium | cyoa-engine |
-| R13 | Wire narrative-ai to story-engine for AI-generated branches | high | narrative-ai → story-engine |
-| R14 | Add multiplayer session support to mcp-games-server | high | mcp-games-server |
+| Step | Task | Req | Owner |
+|------|------|-----|-------|
+| 2.1 | Fix race conditions in GameStateMachine (mutex pattern) | STAB-01 | |
+| 2.2 | Fix memory leaks (event listener cleanup, promise audits) | STAB-02 | |
+| 2.3 | Fix Dialogue Manager ambiguous response routing | STAB-03 | |
+| 2.4 | Write concurrency stress tests | STAB-01, STAB-02 | |
+| 2.5 | Write dialogue disambiguation tests | STAB-03 | |
+| 2.6 | Bump vitest 2.1.9 → 3.2.6 (merge Dependabot PR #56) | MAINT-01 | |
+| 2.7 | Full vitest suite green after upgrade | MAINT-01 | |
+
+**Prerequisite:** Phase 0 gate passed. Phase 1 can run in parallel.
 
 ---
 
-## Issue → Requirement → Phase mapping
+## Phase 3 — Core Package Build
+**Goal:** kanban-harness and story-engine reach MVP; CYOA engine is feature-complete for season 1.
+**Gate:** Each package has a passing integration test suite; CYOA demo runs with real MCP context injection.
 
-| Issue # | Req | Phase | Status |
-|---------|-----|-------|--------|
-| #5  | R1 | P1 | open |
-| #7  | R1 | P1 | open (dup of #5) |
-| #6  | R2 | P1 | open |
-| #9  | R2 | P1 | open (dup of #6) |
-| #8  | R3 | P1 | open |
-| #11 | R3 | P1 | open (dup of #8) |
-| #10 | R4 | P2 | open |
-| #14 | R4 | P2 | open (dup of #10) |
-| #12 | R5 | P2 | open |
-| #15 | R5 | P2 | open (dup of #12) |
-| #56 | R6 | P3 | open |
+### Workstream A: kanban-harness
+| Step | Task | Req |
+|------|------|-----|
+| 3A.1 | Define board schema (columns, cards, swimlanes) | FEAT-01 |
+| 3A.2 | Implement CRUD API for boards + cards | FEAT-01 |
+| 3A.3 | Implement event bus for card transitions | FEAT-01 |
+| 3A.4 | Integration tests | FEAT-01 |
+
+### Workstream B: story-engine
+| Step | Task | Req |
+|------|------|-----|
+| 3B.1 | Define narrative graph schema (YAML → AST) | FEAT-02 |
+| 3B.2 | Implement graph compiler | FEAT-02 |
+| 3B.3 | Wire compiler output to CYOA engine | FEAT-02 |
+| 3B.4 | Integration tests | FEAT-02 |
+
+### Workstream C: cyoa-engine enhancements
+| Step | Task | Req |
+|------|------|-----|
+| 3C.1 | Real-time MCP context injection (calendar, weather, notes) | FEAT-04 |
+| 3C.2 | Voice narration via PersonaPlex | FEAT-03 |
+
+**Prerequisite:** Phase 0 gate passed. Phases 1 and 2 should be complete or nearly complete.
+
+---
+
+## Phase 4 — Self-Healing Runtime
+**Goal:** Tier 0 agent self-monitoring live; Tier 1 AI watchdog with 5+ recovery strategies.
+**Gate:** Chaos test (inject fault) → system detects and recovers without human intervention.
+
+| Step | Task | Req |
+|------|------|-----|
+| 4.1 | Tier 0: instrument agent with self-monitoring (memory, CPU, latency, errors) | FEAT-05 |
+| 4.2 | Tier 1: AI watchdog reads Tier 0 telemetry | FEAT-05 |
+| 4.3 | Implement 5 recovery strategies per failure category | FEAT-05 |
+| 4.4 | Tier 2: human-glanceable dashboard | FEAT-05 |
+| 4.5 | Tier 3: push notification + escalation | FEAT-05 |
+| 4.6 | Chaos test: inject fault → verify automated recovery | FEAT-05 |
+
+---
+
+## Milestones
+
+| Milestone | Phase | Condition |
+|-----------|-------|-----------|
+| `v0.1-secure` | P0 done | All CRITICAL security issues closed |
+| `v0.2-compliant` | P1 done | PCI-DSS controls in place |
+| `v0.3-stable` | P2 done | All MEDIUM bugs closed, vitest upgraded |
+| `v1.0-mvp` | P3 done | kanban-harness + story-engine live, CYOA with MCP context |
+| `v2.0-self-healing` | P4 done | Four-tier runtime operational |
