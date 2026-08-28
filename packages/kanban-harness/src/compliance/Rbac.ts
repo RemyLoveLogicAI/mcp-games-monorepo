@@ -9,9 +9,21 @@ const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
 };
 
 export interface AuthPrincipal { readonly subject: string; readonly roles: readonly Role[]; readonly correlationId: string; }
+
 export const hasPermission = (principal: AuthPrincipal, permission: Permission): boolean =>
   principal.roles.some((role) => ROLE_PERMISSIONS[role].includes(permission));
+
+export class ForbiddenError extends Error {
+  readonly permission: Permission;
+  constructor(permission: Permission) {
+    super(`Forbidden: ${permission}`);
+    this.name = "ForbiddenError";
+    this.permission = permission;
+  }
+}
+
 export const requirePermission = (principal: AuthPrincipal, permission: Permission): void => {
-  if (!hasPermission(principal, permission)) throw new Error(`Forbidden: ${permission}`);
+  if (!hasPermission(principal, permission)) throw new ForbiddenError(permission);
 };
+
 export const permissionsFor = (role: Role): readonly Permission[] => ROLE_PERMISSIONS[role];

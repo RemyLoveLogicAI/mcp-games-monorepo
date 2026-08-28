@@ -6,3 +6,6 @@ export * from "./handlers/LogTaskHandler";
 export * from "./handlers/RealTaskHandler";
 export * from "./WorkerLoop";
 export * from "./server/HarnessServer";
+export * from "./persistence/TaskPersistence";
+export * from "./compliance/Rbac";
+export * from "./compliance/AuditLog";
