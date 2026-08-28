@@ -1,0 +1,28 @@
+{
+  "git": {
+    "protected_branches": ["main"],
+    "on_protected": "ask",
+    "atomic_commits": true,
+    "conventional_commits": true
+  },
+  "review": {
+    "default_stakes": "high",
+    "reviewers": {
+      "default": "claude-subagent"
+    },
+    "min_reviewers": 1,
+    "convergence_weight": true
+  },
+  "verification": {
+    "goal_backward_pass": true,
+    "coverage_audit": true,
+    "score_uncertain": true
+  },
+  "phases": {
+    "P1": { "name": "Security Fixes", "stakes": "critical" },
+    "P2": { "name": "Stability", "stakes": "high" },
+    "P3": { "name": "Dependency Hygiene", "stakes": "low" },
+    "P4": { "name": "Kanban-Harness Production Hardening", "stakes": "medium" },
+    "P5": { "name": "CYOA Engine Polish", "stakes": "medium" }
+  }
+}
