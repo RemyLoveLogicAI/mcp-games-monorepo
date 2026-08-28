@@ -1,5 +1,8 @@
+import { randomUUID } from "node:crypto";
 import type { HarnessDB } from "../schemas/HarnessDB";
 import type { KanbanTask } from "../schemas/Task";
+import type { TaskStore } from "../persistence/TaskPersistence";
+import { canTransition as canPersistTransition } from "../persistence/TaskPersistence";
 
 /**
  * TickDispatcher — single-tick task processing.
@@ -13,6 +16,9 @@ import type { KanbanTask } from "../schemas/Task";
  *
  * The dispatcher is idempotent: calling tick() when no "todo" tasks
  * exist is a no-op returning { processed: false }.
+ *
+ * If a TaskStore is provided, task lifecycle transitions are also persisted
+ * there (task_events, leases) for audit and recovery.
  */
 
 export type TaskHandler = (task: KanbanTask) => Promise<void>;
@@ -30,17 +36,19 @@ export class TickDispatcher {
   private db: HarnessDB;
   private handler: TaskHandler;
   private tickCount: number = 0;
+  private taskStore?: TaskStore;
 
-  constructor(db: HarnessDB, handler: TaskHandler) {
+  constructor(db: HarnessDB, handler: TaskHandler, taskStore?: TaskStore) {
     this.db = db;
     this.handler = handler;
+    this.taskStore = taskStore;
   }
 
   getTickCount(): number {
     return this.tickCount;
   }
 
-  async tick(actor: string = "dispatcher"): Promise<TickResult> {
+  async tick(actor: string = "dispatcher", correlationId: string = randomUUID()): Promise<TickResult> {
     this.tickCount++;
     const start = Date.now();
 
@@ -70,12 +78,25 @@ export class TickDispatcher {
 
     // Transition todo → running
     this.db.transition(task.id, "running", actor);
+    // Persist to TaskStore if available (only when the persistence state machine allows it)
+    if (this.taskStore) {
+      const persisted = await this.taskStore.getById(task.id);
+      if (persisted && canPersistTransition(persisted.state, "in_progress")) {
+        await this.taskStore.transition(task.id, "in_progress", actor, correlationId).catch(() => {});
+      }
+    }
 
     try {
       await this.handler(task);
 
       // Transition running → done
       this.db.transition(task.id, "done", actor);
+      if (this.taskStore) {
+        const persisted = await this.taskStore.getById(task.id);
+        if (persisted && canPersistTransition(persisted.state, "done")) {
+          await this.taskStore.transition(task.id, "done", actor, correlationId).catch(() => {});
+        }
+      }
 
       return {
         processed: true,
@@ -87,6 +108,12 @@ export class TickDispatcher {
     } catch (err) {
       // Transition running → todo (re-queue)
       this.db.transition(task.id, "todo", actor);
+      if (this.taskStore) {
+        const persisted = await this.taskStore.getById(task.id);
+        if (persisted && canPersistTransition(persisted.state, "todo")) {
+          await this.taskStore.transition(task.id, "todo", actor, correlationId).catch(() => {});
+        }
+      }
 
       return {
         processed: true,
