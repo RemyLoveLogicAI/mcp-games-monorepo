@@ -1,5 +1,5 @@
 project: mcp-games-monorepo
 milestone: v1.0 — Security Hardening + Stability
-phase: P3 — Dependency Hygiene
-status: complete — issue dedup done, vitest bumped, 5 canonical issues remain
-updated: 2026-08-28T03:18:00Z
+phase: P1 — Security Fixes
+status: complete — 2 critical issues closed with evidence, 22 security tests added
+updated: 2026-08-28T03:25:00Z
