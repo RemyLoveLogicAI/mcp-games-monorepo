@@ -149,17 +149,8 @@ export class SqliteTaskStore implements TaskStore {
 
   async recoverExpiredLeases(now: Date = new Date()): Promise<number> {
     const nowIso = now.toISOString();
-    const expired = this.db.prepare(
-      `SELECT task_id FROM leases WHERE expires_at < ?`
-    ).all(nowIso) as Array<{ task_id: string }>;
-
-    if (expired.length === 0) return 0;
-
-    const stmt = this.db.prepare(`DELETE FROM leases WHERE task_id = ?`);
-    for (const row of expired) {
-      stmt.run(row.task_id);
-    }
-    return expired.length;
+    const result = this.db.prepare(`DELETE FROM leases WHERE expires_at < ?`).run(nowIso);
+    return result.changes;
   }
 
   async getById(id: string): Promise<Task | null> {

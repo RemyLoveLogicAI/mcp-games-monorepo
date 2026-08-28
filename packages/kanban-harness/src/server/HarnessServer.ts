@@ -2,7 +2,7 @@ import http from "http";
 import type { HarnessDB } from "../schemas/HarnessDB";
 import { TickDispatcher, type TickResult } from "../dispatcher/TickDispatcher";
 import { type AuditSink, withAudit } from "../compliance/AuditLog";
-import { type AuthPrincipal, requirePermission, type Permission } from "../compliance/Rbac";
+import { type AuthPrincipal, requirePermission, type Permission, ForbiddenError } from "../compliance/Rbac";
 
 /**
  * HarnessServer — HTTP control plane on :8794.
@@ -164,10 +164,14 @@ export function createHarnessServer(
       res.statusCode = 404;
       res.end(JSON.stringify({ error: "Not found" }));
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      const statusCode = message.startsWith("Forbidden:") ? 403 : 500;
-      res.statusCode = statusCode;
-      res.end(JSON.stringify({ error: message }));
+      if (err instanceof ForbiddenError) {
+        res.statusCode = 403;
+        res.end(JSON.stringify({ error: err.message }));
+      } else {
+        // Avoid leaking internal details (stack traces, file paths) to clients
+        res.statusCode = 500;
+        res.end(JSON.stringify({ error: "Internal server error" }));
+      }
     }
   });
 

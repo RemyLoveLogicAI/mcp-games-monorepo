@@ -162,8 +162,7 @@ describe("TickDispatcher with TaskStore wiring", () => {
     const cid = randomUUID();
     const storeTask = await store.create({ title: "Matched", state: "todo", payload: {}, correlationId: cid });
 
-    // Manually insert into HarnessDB with the same ID
-    const now = new Date().toISOString();
+    // Manually insert into HarnessDB with the same ID.
     // Use db.create then patch via internal — but HarnessDB.create generates its own ID.
     // We'll use the logTaskHandler fast path and rely on dispatcher's soft-fail for ID mismatch;
     // this test just validates the flow completes without errors.
@@ -208,11 +207,11 @@ describe("HarnessServer RBAC and AuditLog", () => {
     for (const f of [TEST_DB, `${TEST_DB}-wal`, `${TEST_DB}-shm`]) rmSync(f, { force: true });
     db = new HarnessDB(TEST_DB);
     dispatcher = new TickDispatcher(db, logTaskHandler);
-    port = 8900 + Math.floor(Math.random() * 100);
     auditLog.length = 0;
-    server = createHarnessServer(db, dispatcher, port, sink);
-    // Wait for server to be ready
+    server = createHarnessServer(db, dispatcher, 0, sink);
+    // Wait for server to be ready and get the actual assigned port
     await new Promise<void>(r => server.once("listening", r));
+    port = (server.address() as import("net").AddressInfo).port;
   });
 
   afterEach(() => {
