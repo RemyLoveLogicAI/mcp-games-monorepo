@@ -1,10 +1,10 @@
 fastapi==0.109.0
 uvicorn[standard]==0.27.0
 pydantic==2.5.3
-python-dotenv==1.0.0
+python-dotenv==1.2.2
 openai==1.7.2
 anthropicsdk==0.8.1
-langchain==0.2.5
+langchain==1.3.9
 langchain-openai==1.1.14
-aiohttp==3.13.4
-python-multipart==0.0.26
+aiohttp==3.14.3
+python-multipart==0.0.31
