@@ -19,7 +19,7 @@
     "react-dom": "^18.2.0",
     "shared-types": "workspace:*",
     "story-engine": "workspace:*",
-    "zustand": "^4.4.7"
+    "zustand": "^5.0.15"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.2.2",
