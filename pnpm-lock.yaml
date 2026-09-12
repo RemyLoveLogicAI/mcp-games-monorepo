@@ -414,8 +414,8 @@ importers:
         specifier: ^2.39.0
         version: 2.112.4(@opentelemetry/api@1.9.1)
       chalk:
-        specifier: ^4.1.2
-        version: 4.1.2
+        specifier: ^6.0.0
+        version: 6.0.0
       cli-table3:
         specifier: 0.6.5
         version: 0.6.5
@@ -5260,6 +5260,11 @@ packages:
     dependencies:
       ansi-styles: 4.3.0
       supports-color: 7.2.0
+
+  /chalk@6.0.0:
+    resolution: {integrity: sha512-2uNTXIuTTxk7ciZgAU1BQcgnchcG0xXnrs6jzkQfj9SsRa9M2s5zE8WT96hS6KmG4MzWHSrvH43DF1m4XRkrFg==}
+    engines: {node: '>=22'}
+    dev: false
 
   /char-regex@1.0.2:
     resolution: {integrity: sha512-kWWXztvZ5SBQV+eRgKFeh8q5sLuZY2+8WUIzlxWVTg+oGwY14qylx1KbKzHd8P6ZYkAg0xyIDU9JMHhyJMZ1jw==}
