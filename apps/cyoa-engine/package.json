@@ -15,7 +15,7 @@
     "axios": "^1.18.0",
     "mcp-sdk": "workspace:*",
     "next": "^15.5.21",
-    "react": "^18.2.0",
+    "react": "^19.2.8",
     "react-dom": "^18.2.0",
     "shared-types": "workspace:*",
     "story-engine": "workspace:*",
@@ -24,7 +24,7 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4.2.2",
     "@types/node": "^20.10.0",
-    "@types/react": "^18.2.45",
+    "@types/react": "^19.2.18",
     "@types/react-dom": "^18.2.18",
     "autoprefixer": "^10.4.16",
     "eslint": "^8.56.0",
