@@ -70,8 +70,8 @@ importers:
   apps/cyoa-engine:
     dependencies:
       '@tanstack/react-query':
-        specifier: ^5.14.0
-        version: 5.102.6(react@18.3.1)
+        specifier: ^5.103.2
+        version: 5.103.2(react@18.3.1)
       axios:
         specifier: ^1.18.0
         version: 1.20.0
@@ -3919,16 +3919,16 @@ packages:
       tailwindcss: 4.3.3
     dev: true
 
-  /@tanstack/query-core@5.102.6:
-    resolution: {integrity: sha512-jp+GucyQ+fel2ILb8ZLQeqMaAqZL/Bzaj+dKOQiPk4vPdf2rQPEV7heUyEVIhatpY42j4AFHav4DzBa1oTIp/A==}
+  /@tanstack/query-core@5.103.2:
+    resolution: {integrity: sha512-I8DkFXls5jXLqtm8+QpOhEmG07hIblhSZFzafg9wHsMSEvMzULy9hK17wU1T/ahfhMbtITJhbxutwwCoihkR7A==}
     dev: false
 
-  /@tanstack/react-query@5.102.6(react@18.3.1):
-    resolution: {integrity: sha512-ANz4KZ8z80D85fiz5IAHjpb8XBPLrjOb/0natlD9Ascyy/3p96V86Zw8UbOfA0HDLcvK/A4gNd95r723y5UT2w==}
+  /@tanstack/react-query@5.103.2(react@18.3.1):
+    resolution: {integrity: sha512-B+fWiYZBc+0uUD5zDZAeLw9dKj7XEsdnuu6zRZ+no6LNKpeE3P3bJ+N6HINjcIlWR6fW3vUoTneEaGa2V6ehqw==}
     peerDependencies:
       react: ^18 || ^19
     dependencies:
-      '@tanstack/query-core': 5.102.6
+      '@tanstack/query-core': 5.103.2
       react: 18.3.1
     dev: false
 
