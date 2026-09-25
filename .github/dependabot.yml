@@ -8,6 +8,10 @@ updates:
       # chalk 5+ is ESM-only; monorepo packages are CommonJS (tsc moduleResolution: node).
       # Re-enable once packages migrate to ESM.
       - dependency-name: "chalk"
+      # eslint-config-next 16 requires Next.js 16 + ESLint 9 flat config; cyoa-engine is on Next 15.
+      # Allow minor/patch, block major until the Next 16 migration.
+      - dependency-name: "eslint-config-next"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: github-actions
     directory: "/"
     schedule:
