@@ -4,6 +4,10 @@ updates:
     directory: "/"
     schedule:
       interval: weekly
+    ignore:
+      # chalk 5+ is ESM-only; monorepo packages are CommonJS (tsc moduleResolution: node).
+      # Re-enable once packages migrate to ESM.
+      - dependency-name: "chalk"
   - package-ecosystem: github-actions
     directory: "/"
     schedule:
