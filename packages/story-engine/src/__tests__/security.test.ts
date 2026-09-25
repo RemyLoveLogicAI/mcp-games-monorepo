@@ -1,15 +1,23 @@
-import { describe, it, expect } from 'vitest';
 import { StoryEngine } from '../index.js';
 import type { Story } from '@omnigents/shared';
 
 const mockStory: Story = {
   id: 'test-story',
   title: 'Security Test Story',
+  description: 'Mock story for engine security tests',
+  metadata: {
+    author: 'test',
+    version: '1.0.0',
+    tags: [],
+    mcpIntegrations: [],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
   scenes: [
     {
       id: 'scene-1',
-      title: 'Start',
       narrative: 'You are at a crossroads.',
+      consequences: [],
       choices: [
         {
           id: 'choice-1',
@@ -30,14 +38,14 @@ const mockStory: Story = {
     },
     {
       id: 'scene-2',
-      title: 'Left Path',
       narrative: 'You went left.',
+      consequences: [],
       choices: [],
     },
     {
       id: 'scene-3',
-      title: 'Right Path',
       narrative: 'You went right.',
+      consequences: [],
       choices: [],
     },
   ],
