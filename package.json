@@ -32,6 +32,6 @@
     "pnpm": ">=8.0.0"
   },
   "dependencies": {
-    "vitest": "^3.2.6"
+    "vitest": "^5.0.2"
   }
 }
