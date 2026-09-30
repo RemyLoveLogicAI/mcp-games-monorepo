@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useState } from 'react';
 import { story } from './story';
 
@@ -75,9 +76,9 @@ export default function GameClient() {
         </div>
 
         <div className="mt-6 text-center">
-          <a href="/" className="text-slate-500 hover:text-slate-300 text-sm">
+          <Link href="/" className="text-slate-500 hover:text-slate-300 text-sm">
             Back to LoveLogic
-          </a>
+          </Link>
         </div>
       </div>
     </main>

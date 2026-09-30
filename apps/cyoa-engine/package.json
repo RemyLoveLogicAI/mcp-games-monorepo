@@ -19,7 +19,7 @@
     "react-dom": "^18.2.0",
     "shared-types": "workspace:*",
     "story-engine": "workspace:*",
-    "zustand": "^4.4.7"
+    "zustand": "^5.0.15"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.2.2",
@@ -28,8 +28,8 @@
     "@types/react-dom": "^18.2.18",
     "autoprefixer": "^10.4.16",
     "eslint": "^8.56.0",
-    "eslint-config-next": "^14.0.4",
-    "postcss": "^8.4.32",
+    "eslint-config-next": "^15.5.24",
+    "postcss": "^8.5.28",
     "tailwindcss": "^4.2.2",
     "typescript": "^5.3.0"
   }
