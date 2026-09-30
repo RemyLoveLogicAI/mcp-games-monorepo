@@ -6,3 +6,8 @@ export * from "./handlers/LogTaskHandler";
 export * from "./handlers/RealTaskHandler";
 export * from "./WorkerLoop";
 export * from "./server/HarnessServer";
+export type { TaskState } from "./schemas/TaskStateMachine";
+export type { TaskState as PersistenceTaskState } from "./persistence/TaskPersistence";
+export * from "./persistence/TaskPersistence";
+export * from "./compliance/Rbac";
+export * from "./compliance/AuditLog";
