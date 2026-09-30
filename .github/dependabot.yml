@@ -12,6 +12,10 @@ updates:
       # Allow minor/patch, block major until the Next 16 migration.
       - dependency-name: "eslint-config-next"
         update-types: ["version-update:semver-major"]
+      # commander 15 is ESM-only; CJS packages on Node 20 cannot require it.
+      # Allow minor/patch, block major until the ESM migration.
+      - dependency-name: "commander"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: github-actions
     directory: "/"
     schedule:
