@@ -3,6 +3,30 @@ import type { KanbanTask } from "./Task";
 import type { TaskState } from "./TaskStateMachine";
 import { assertTransition } from "./TaskStateMachine";
 
+interface TaskRow {
+  id: string;
+  title: string;
+  description: string;
+  state: string;
+  priority: string;
+  assignee_id: string | null;
+  created_at: string;
+  updated_at: string;
+  started_at: string | null;
+  completed_at: string | null;
+  tags: string;
+  metadata: string;
+}
+
+interface TransitionLogRow {
+  id: number;
+  task_id: string;
+  from_state: string;
+  to_state: string;
+  actor: string;
+  timestamp: string;
+}
+
 /**
  * HarnessDB — SQLite-backed task store at var/harness.db
  * All writes are synchronous (better-sqlite3 is sync by design).
@@ -50,9 +74,9 @@ export class HarnessDB {
     `);
   }
 
-  create(input: { title: string; description?: string; priority?: string; tags?: string[]; metadata?: Record<string, unknown> }): KanbanTask {
+  create(input: { title: string; description?: string; priority?: string; tags?: string[]; metadata?: Record<string, unknown>; id?: string }): KanbanTask {
     const now = new Date().toISOString();
-    const id = `task-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const id = input.id ?? `task-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const task: KanbanTask = {
       id,
       title: input.title,
@@ -77,17 +101,17 @@ export class HarnessDB {
   }
 
   getById(id: string): KanbanTask | null {
-    const row = this.db.prepare("SELECT * FROM tasks WHERE id = ?").get(id) as any;
+    const row = this.db.prepare("SELECT * FROM tasks WHERE id = ?").get(id) as TaskRow | undefined;
     return row ? this.rowToTask(row) : null;
   }
 
   getByState(state: TaskState): KanbanTask[] {
-    const rows = this.db.prepare("SELECT * FROM tasks WHERE state = ? ORDER BY created_at ASC").all(state) as any[];
+    const rows = this.db.prepare("SELECT * FROM tasks WHERE state = ? ORDER BY created_at ASC").all(state) as TaskRow[];
     return rows.map(r => this.rowToTask(r));
   }
 
   getAll(): KanbanTask[] {
-    const rows = this.db.prepare("SELECT * FROM tasks ORDER BY created_at ASC").all() as any[];
+    const rows = this.db.prepare("SELECT * FROM tasks ORDER BY created_at ASC").all() as TaskRow[];
     return rows.map(r => this.rowToTask(r));
   }
 
@@ -123,17 +147,21 @@ export class HarnessDB {
       INSERT INTO transition_log (task_id, from_state, to_state, actor, timestamp) VALUES (?, ?, ?, ?, ?)
     `).run(taskId, oldState, newState, actor, now);
 
-    return this.getById(taskId)!;
+    const updated = this.getById(taskId);
+    if (!updated) throw new Error(`Task ${taskId} not found after transition`);
+    return updated;
   }
 
   assign(taskId: string, assigneeId: string): KanbanTask {
     const now = new Date().toISOString();
     this.db.prepare("UPDATE tasks SET assignee_id = ?, updated_at = ? WHERE id = ?").run(assigneeId, now, taskId);
-    return this.getById(taskId)!;
+    const task = this.getById(taskId);
+    if (!task) throw new Error(`Task ${taskId} not found`);
+    return task;
   }
 
   getTransitionLog(taskId: string): Array<{ id: number; taskId: string; fromState: string; toState: string; actor: string; timestamp: string }> {
-    const rows = this.db.prepare("SELECT * FROM transition_log WHERE task_id = ? ORDER BY id ASC").all(taskId) as any[];
+    const rows = this.db.prepare("SELECT * FROM transition_log WHERE task_id = ? ORDER BY id ASC").all(taskId) as TransitionLogRow[];
     return rows.map(r => ({
       id: r.id,
       taskId: r.task_id,
@@ -148,20 +176,20 @@ export class HarnessDB {
     this.db.close();
   }
 
-  private rowToTask(row: any): KanbanTask {
+  private rowToTask(row: TaskRow): KanbanTask {
     return {
       id: row.id,
       title: row.title,
       description: row.description,
-      state: row.state,
-      priority: row.priority,
+      state: row.state as TaskState,
+      priority: row.priority as KanbanTask["priority"],
       assigneeId: row.assignee_id,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
       startedAt: row.started_at,
       completedAt: row.completed_at,
-      tags: JSON.parse(row.tags || "[]"),
-      metadata: JSON.parse(row.metadata || "{}"),
+      tags: JSON.parse(row.tags || "[]") as string[],
+      metadata: JSON.parse(row.metadata || "{}") as Record<string, unknown>,
     };
   }
 }
