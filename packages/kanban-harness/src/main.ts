@@ -6,6 +6,7 @@ import { createHarnessServer } from "./server/HarnessServer";
 import { realTaskHandler } from "./handlers/RealTaskHandler";
 import { SqliteTaskStore } from "./persistence/TaskPersistence";
 import { type AuditEvent } from "./compliance/AuditLog";
+import { type Role } from "./compliance/Rbac";
 
 const PORT = parseInt(process.env.HARNESS_PORT ?? "8794", 10);
 const TICK_MS = parseInt(process.env.HARNESS_TICK_MS ?? "1000", 10);
@@ -39,7 +40,31 @@ const worker = new WorkerLoop(dispatcher, {
   onError: (err) => console.error(`[tick] Worker error:`, err),
 });
 
-const server = createHarnessServer(db, dispatcher, PORT, auditSink);
+// Server-side subject → roles mapping (JSON). Roles are resolved server-side;
+// the X-Principal-Roles request header is never trusted. Example:
+//   HARNESS_ROLE_ASSIGNMENTS='{"remy":["admin"],"agent-1":["operator"]}'
+// Unset → every HTTP principal is viewer (safe default; the worker loop and
+// dispatcher are unaffected).
+const roleAssignments = (() => {
+  const valid: readonly Role[] = ["viewer", "operator", "auditor", "admin"];
+  try {
+    const raw = process.env.HARNESS_ROLE_ASSIGNMENTS;
+    if (!raw) return undefined;
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const out: Record<string, readonly Role[]> = {};
+    for (const [subject, roles] of Object.entries(parsed)) {
+      if (!Array.isArray(roles)) continue;
+      const kept = roles.filter((r): r is Role => typeof r === "string" && (valid as readonly string[]).includes(r));
+      if (kept.length) out[subject] = kept;
+    }
+    return out;
+  } catch {
+    console.error("[harness] Ignoring invalid HARNESS_ROLE_ASSIGNMENTS (must be JSON object)");
+    return undefined;
+  }
+})();
+
+const server = createHarnessServer(db, dispatcher, PORT, auditSink, { roleAssignments });
 
 // Graceful shutdown
 const shutdown = () => {
