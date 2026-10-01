@@ -3,7 +3,29 @@ import { randomUUID } from "node:crypto";
 import type { HarnessDB } from "../schemas/HarnessDB";
 import { TickDispatcher } from "../dispatcher/TickDispatcher";
 import { type AuditSink, withAudit } from "../compliance/AuditLog";
-import { type AuthPrincipal, requirePermission, type Permission, ForbiddenError } from "../compliance/Rbac";
+import { type AuthPrincipal, type Role, requirePermission, type Permission, ForbiddenError } from "../compliance/Rbac";
+
+const KNOWN_ROLES: readonly Role[] = ["viewer", "operator", "auditor", "admin"];
+
+/**
+ * Principal-resolution options for the control plane.
+ *
+ * TRUST BOUNDARY: the X-Principal-Subject / X-Principal-Roles request headers
+ * are client-controlled. They are NEVER trusted by default.
+ *
+ * - `trustProxyHeaders: true` — honor the headers as asserted by an upstream
+ *   trusted proxy. Enable ONLY when a proxy strips client-supplied values and
+ *   sets its own from verified authentication. Direct client access with this
+ *   on lets anyone claim admin.
+ * - `roleAssignments` — server-side subject → roles map. The request subject is
+ *   looked up here; the X-Principal-Roles header is ignored entirely. Subjects
+ *   missing from the map get the viewer role.
+ * - neither — every request is treated as viewer (safe default).
+ */
+export interface HarnessServerAuthOptions {
+  readonly trustProxyHeaders?: boolean;
+  readonly roleAssignments?: Readonly<Record<string, readonly Role[]>>;
+}
 
 /**
  * HarnessServer — HTTP control plane on :8794.
@@ -20,9 +42,11 @@ import { type AuthPrincipal, requirePermission, type Permission, ForbiddenError 
  *
  * RBAC & Audit:
  *   All mutating operations require a principal with the appropriate permission.
- *   Principal is extracted from the X-Principal-Subject (subject) and
- *   X-Principal-Roles (comma-separated roles) request headers.
- *   Every operation is recorded via the AuditSink.
+ *   The principal subject is read from the X-Principal-Subject request header.
+ *   Roles are resolved server-side (see HarnessServerAuthOptions): client
+ *   X-Principal-Roles headers are ignored unless trustProxyHeaders is enabled
+ *   behind a trusted proxy. Unmapped subjects default to viewer.
+ *   Every operation — including denied attempts — is recorded via the AuditSink.
  */
 
 export function createHarnessServer(
@@ -30,6 +54,7 @@ export function createHarnessServer(
   dispatcher: TickDispatcher,
   port: number = 8794,
   auditSink?: AuditSink,
+  auth: HarnessServerAuthOptions = {},
 ): http.Server {
   // Default no-op audit sink when none provided
   const sink: AuditSink = auditSink ?? { append: () => {} };
@@ -52,18 +77,32 @@ export function createHarnessServer(
         });
       });
 
-    // Extract principal from request headers
+    // Resolve principal: subject is client-asserted; roles are NEVER taken from
+    // client headers unless a trusted proxy is configured to assert them.
     const extractPrincipal = (correlationId: string): AuthPrincipal => {
       const subject = (req.headers["x-principal-subject"] as string | undefined) ?? "anonymous";
-      const rolesHeader = (req.headers["x-principal-roles"] as string | undefined) ?? "";
-      const roles = rolesHeader
-        .split(",")
-        .map(r => r.trim())
-        .filter(r => ["viewer", "operator", "auditor", "admin"].includes(r)) as AuthPrincipal["roles"];
-      return { subject, roles: roles.length ? roles : ["viewer"], correlationId };
+      let roles: readonly Role[];
+      if (auth.trustProxyHeaders) {
+        const rolesHeader = (req.headers["x-principal-roles"] as string | undefined) ?? "";
+        const parsed = rolesHeader
+          .split(",")
+          .map(r => r.trim())
+          .filter((r): r is Role => (KNOWN_ROLES as readonly string[]).includes(r));
+        roles = parsed.length ? parsed : ["viewer"];
+      } else if (auth.roleAssignments) {
+        const assigned = auth.roleAssignments[subject] ?? [];
+        const valid = assigned.filter((r): r is Role => (KNOWN_ROLES as readonly string[]).includes(r));
+        roles = valid.length ? valid : ["viewer"];
+      } else {
+        roles = ["viewer"];
+      }
+      return { subject, roles, correlationId };
     };
 
-    // Helper: wrap operation with permission check + audit
+    // Helper: wrap operation with permission check + audit.
+    // The permission check runs INSIDE the audit wrapper so that denied
+    // attempts are recorded (outcome "denied") instead of throwing before
+    // the audit event is emitted.
     const guarded = async <T>(
       resource: string,
       action: string,
@@ -72,8 +111,14 @@ export function createHarnessServer(
       operation: () => Promise<T>,
     ): Promise<T> => {
       const principal = extractPrincipal(correlationId);
-      requirePermission(principal, permission);
-      return withAudit(sink, { subject: principal.subject, action, resource, correlationId }, operation);
+      return withAudit(
+        sink,
+        { subject: principal.subject, action, resource, correlationId },
+        async () => {
+          requirePermission(principal, permission);
+          return operation();
+        },
+      );
     };
 
     try {
