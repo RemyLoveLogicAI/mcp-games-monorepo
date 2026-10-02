@@ -18,8 +18,8 @@ const KNOWN_ROLES: readonly Role[] = ["viewer", "operator", "auditor", "admin"];
  *   sets its own from verified authentication. Direct client access with this
  *   on lets anyone claim admin.
  * - `roleAssignments` — server-side subject → roles map. The request subject is
- *   looked up here; the X-Principal-Roles header is ignored entirely. Subjects
- *   missing from the map get the viewer role.
+ *   is consulted only for proxy-verified subjects. Unmapped subjects default to
+ *   viewer.
  * - neither — every request is treated as viewer (safe default).
  */
 export interface HarnessServerAuthOptions {
@@ -42,7 +42,7 @@ export interface HarnessServerAuthOptions {
  *
  * RBAC & Audit:
  *   All mutating operations require a principal with the appropriate permission.
- *   The principal subject is read from the X-Principal-Subject request header.
+ *   The principal subject is read from X-Principal-Subject only when proxy headers are trusted; otherwise it is anonymous.
  *   Roles are resolved server-side (see HarnessServerAuthOptions): client
  *   X-Principal-Roles headers are ignored unless trustProxyHeaders is enabled
  *   behind a trusted proxy. Unmapped subjects default to viewer.
@@ -77,10 +77,12 @@ export function createHarnessServer(
         });
       });
 
-    // Resolve principal: subject is client-asserted; roles are NEVER taken from
-    // client headers unless a trusted proxy is configured to assert them.
+    // Resolve principal: client-supplied subject and roles are trusted only
+    // when trustProxyHeaders is enabled for a proxy that verifies and overwrites them.
     const extractPrincipal = (correlationId: string): AuthPrincipal => {
-      const subject = (req.headers["x-principal-subject"] as string | undefined) ?? "anonymous";
+      const subject = auth.trustProxyHeaders
+        ? (req.headers["x-principal-subject"] as string | undefined) ?? "anonymous"
+        : "anonymous";
       let roles: readonly Role[];
       if (auth.trustProxyHeaders) {
         const rolesHeader = (req.headers["x-principal-roles"] as string | undefined) ?? "";
@@ -90,7 +92,7 @@ export function createHarnessServer(
           .filter((r): r is Role => (KNOWN_ROLES as readonly string[]).includes(r));
         roles = parsed.length ? parsed : ["viewer"];
       } else if (auth.roleAssignments) {
-        const assigned = auth.roleAssignments[subject] ?? [];
+        const assigned = Object.hasOwn(auth.roleAssignments, subject) ? auth.roleAssignments[subject] ?? [] : [];
         const valid = assigned.filter((r): r is Role => (KNOWN_ROLES as readonly string[]).includes(r));
         roles = valid.length ? valid : ["viewer"];
       } else {

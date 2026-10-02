@@ -379,7 +379,7 @@ describe("HarnessServer principal trust boundary", () => {
     }, { title: "Pwned" });
     // A self-claimed admin header must NOT grant write access.
     expect(status).toBe(403);
-    const denied = auditLog.find(e => e.action === "task:create" && e.subject === "mallory");
+    const denied = auditLog.find(e => e.action === "task:create" && e.subject === "anonymous");
     expect(denied?.outcome).toBe("denied");
   });
 
@@ -389,7 +389,7 @@ describe("HarnessServer principal trust boundary", () => {
       "X-Principal-Subject": "alice",
     }, { title: "Nope" });
     expect(status).toBe(403);
-    const denied = auditLog.find(e => e.action === "task:create" && e.subject === "alice");
+    const denied = auditLog.find(e => e.action === "task:create" && e.subject === "anonymous");
     expect(denied?.outcome).toBe("denied");
     expect(denied?.resource).toBe("/tasks");
   });
@@ -401,15 +401,15 @@ describe("HarnessServer principal trust boundary", () => {
     expect(auditLog.some(e => e.action === "task:list" && e.outcome === "allowed")).toBe(true);
   });
 
-  it("resolves roles from server-side roleAssignments, ignoring the header", async () => {
+  it("does not let a client impersonate a subject in roleAssignments", async () => {
     await startServer({ roleAssignments: { bob: ["operator"] } });
 
-    // bob is operator per the server map — no roles header needed
+    // A client-asserted subject is not verified, so the assigned operator role is unavailable.
     const ok = await request("POST", "/tasks", {
       "X-Principal-Subject": "bob",
     }, { title: "Assigned task" });
-    expect(ok.status).toBe(201);
-    expect(auditLog.some(e => e.action === "task:create" && e.subject === "bob" && e.outcome === "allowed")).toBe(true);
+    expect(ok.status).toBe(403);
+    expect(auditLog.some(e => e.action === "task:create" && e.subject === "anonymous" && e.outcome === "denied")).toBe(true);
 
     // mallory claims admin via header but is not in the map → viewer → 403
     const bad = await request("POST", "/tasks", {
