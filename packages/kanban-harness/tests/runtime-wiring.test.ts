@@ -241,7 +241,11 @@ describe("HarnessServer RBAC and AuditLog", () => {
     db = new HarnessDB(TEST_DB);
     dispatcher = new TickDispatcher(db, logTaskHandler);
     auditLog.length = 0;
-    server = createHarnessServer(db, dispatcher, 0, sink);
+    // NOTE: this suite opts into trusting the X-Principal-Roles header so the
+    // RBAC matrix can be exercised directly. In production the headers are NOT
+    // trusted (see "principal trust boundary" suite below); enable
+    // trustProxyHeaders only behind a proxy that strips client headers.
+    server = createHarnessServer(db, dispatcher, 0, sink, { trustProxyHeaders: true });
     await new Promise<void>(r => server.once("listening", r));
     port = (server.address() as AddressInfo).port;
   });
@@ -311,12 +315,107 @@ describe("HarnessServer RBAC and AuditLog", () => {
     expect(status).toBe(403);
   });
 
-  it("forbidden requests return 403", async () => {
+  it("forbidden requests return 403 and emit a denied audit event", async () => {
     const { status, data } = await request("POST", "/tasks", {
       "X-Principal-Subject": "eve",
       "X-Principal-Roles": "viewer",
     }, { title: "Denied" });
     expect(status).toBe(403);
     expect(typeof data.error).toBe("string");
+    // Regression: denied attempts must reach the audit sink (outcome "denied"),
+    // not throw before the audit wrapper is entered.
+    const denied = auditLog.find(e => e.action === "task:create" && e.subject === "eve");
+    expect(denied?.outcome).toBe("denied");
+    expect(denied?.resource).toBe("/tasks");
+  });
+});
+
+// ──────────────────────────────────────────────────────────────────────────────
+// HarnessServer principal trust boundary (secure defaults)
+// ──────────────────────────────────────────────────────────────────────────────
+describe("HarnessServer principal trust boundary", () => {
+  let db: HarnessDB;
+  let dispatcher: TickDispatcher;
+  let server: http.Server;
+  let port: number;
+  const auditLog: AuditEvent[] = [];
+  const sink: AuditSink = { append: (e) => { auditLog.push(e); } };
+
+  const request = (method: string, path: string, headers: Record<string, string> = {}, body?: unknown): Promise<{ status: number; data: Record<string, unknown> }> =>
+    new Promise((resolve, reject) => {
+      const opts = { method, hostname: "localhost", port, path, headers: { "Content-Type": "application/json", ...headers } };
+      const req = http.request(opts, (res) => {
+        let raw = "";
+        res.on("data", d => (raw += d));
+        res.on("end", () => resolve({ status: res.statusCode ?? 0, data: JSON.parse(raw) as Record<string, unknown> }));
+      });
+      req.on("error", reject);
+      if (body) req.write(JSON.stringify(body));
+      req.end();
+    });
+
+  const startServer = async (auth?: Parameters<typeof createHarnessServer>[4]) => {
+    mkdirSync(DB_DIR, { recursive: true });
+    cleanupDb(TEST_DB);
+    db = new HarnessDB(TEST_DB);
+    dispatcher = new TickDispatcher(db, logTaskHandler);
+    auditLog.length = 0;
+    server = createHarnessServer(db, dispatcher, 0, sink, auth);
+    await new Promise<void>(r => server.once("listening", r));
+    port = (server.address() as AddressInfo).port;
+  };
+
+  afterEach(() => {
+    db.close();
+    server.close();
+    cleanupDb(TEST_DB);
+  });
+
+  it("ignores client-asserted X-Principal-Roles by default", async () => {
+    await startServer();
+    const { status } = await request("POST", "/tasks", {
+      "X-Principal-Subject": "mallory",
+      "X-Principal-Roles": "admin",
+    }, { title: "Pwned" });
+    // A self-claimed admin header must NOT grant write access.
+    expect(status).toBe(403);
+    const denied = auditLog.find(e => e.action === "task:create" && e.subject === "anonymous");
+    expect(denied?.outcome).toBe("denied");
+  });
+
+  it("denied attempts are audited even without trusted headers", async () => {
+    await startServer();
+    const { status } = await request("POST", "/tasks", {
+      "X-Principal-Subject": "alice",
+    }, { title: "Nope" });
+    expect(status).toBe(403);
+    const denied = auditLog.find(e => e.action === "task:create" && e.subject === "anonymous");
+    expect(denied?.outcome).toBe("denied");
+    expect(denied?.resource).toBe("/tasks");
+  });
+
+  it("reads still work for the viewer default", async () => {
+    await startServer();
+    const { status } = await request("GET", "/tasks");
+    expect(status).toBe(200);
+    expect(auditLog.some(e => e.action === "task:list" && e.outcome === "allowed")).toBe(true);
+  });
+
+  it("does not let a client impersonate a subject in roleAssignments", async () => {
+    await startServer({ roleAssignments: { bob: ["operator"] } });
+
+    // A client-asserted subject is not verified, so the assigned operator role is unavailable.
+    const ok = await request("POST", "/tasks", {
+      "X-Principal-Subject": "bob",
+    }, { title: "Assigned task" });
+    expect(ok.status).toBe(403);
+    expect(auditLog.some(e => e.action === "task:create" && e.subject === "anonymous" && e.outcome === "denied")).toBe(true);
+
+    // mallory claims admin via header but is not in the map → viewer → 403
+    const bad = await request("POST", "/tasks", {
+      "X-Principal-Subject": "mallory",
+      "X-Principal-Roles": "admin",
+    }, { title: "Pwned" });
+    expect(bad.status).toBe(403);
   });
 });
