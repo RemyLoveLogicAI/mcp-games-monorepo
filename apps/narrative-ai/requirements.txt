@@ -3,7 +3,7 @@ uvicorn[standard]==0.27.0
 pydantic==2.5.3
 python-dotenv==1.0.0
 openai==1.7.2
-anthropicsdk==0.8.1
+anthropic==1.11.0
 langchain==0.2.5
 langchain-openai==1.1.14
 aiohttp==3.13.4
