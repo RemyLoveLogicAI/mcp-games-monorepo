@@ -20,6 +20,18 @@ updates:
       # Allow minor/patch, block major until a dedicated Next 16 migration PR.
       - dependency-name: "next"
         update-types: ["version-update:semver-major"]
+      # nanoid 4+ is ESM-only; CJS packages cannot require it (Build & Test fails).
+      # Allow minor/patch, block major until the ESM migration.
+      - dependency-name: "nanoid"
+        update-types: ["version-update:semver-major"]
+      # zod 4 is a breaking major (Build & Test fails).
+      # Allow minor/patch, block major until a dedicated zod 4 migration PR.
+      - dependency-name: "zod"
+        update-types: ["version-update:semver-major"]
+      # react 19 is a breaking major for this monorepo (Build & Test fails).
+      # Allow minor/patch, block major until a dedicated React 19 migration PR.
+      - dependency-name: "react"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: github-actions
     directory: "/"
     schedule:
