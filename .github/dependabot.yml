@@ -32,7 +32,14 @@ updates:
       # Allow minor/patch, block major until a dedicated React 19 migration PR.
       - dependency-name: "react"
         update-types: ["version-update:semver-major"]
+      # react-dom 19 is a breaking major (same migration as react 19 / #102).
+      - dependency-name: "react-dom"
+        update-types: ["version-update:semver-major"]
+      # better-sqlite3 13 is a breaking major (native module, Build & Test fails).
+      - dependency-name: "better-sqlite3"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: github-actions
     directory: "/"
     schedule:
       interval: weekly
+
