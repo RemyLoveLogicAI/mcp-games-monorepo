@@ -58,8 +58,8 @@ export const GameDefinitionSchema = z.object({
     description: z.string(),
     author: z.string(),
     startScene: z.string(),
-    scenes: z.record(SceneSchema),
-    endings: z.record(EndingSchema).optional(),
+    scenes: z.record(z.string(), SceneSchema),
+    endings: z.record(z.string(), EndingSchema).optional(),
     contextPermissions: ContextPermissionsSchema.optional(),
 });
 
