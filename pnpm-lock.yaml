@@ -94,8 +94,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/story-engine
       zustand:
-        specifier: ^5.0.15
-        version: 5.0.15(@types/react@18.3.31)(react@18.3.1)
+        specifier: ^5.1.0
+        version: 5.1.0(@types/react@18.3.31)(react@18.3.1)
     devDependencies:
       '@tailwindcss/postcss':
         specifier: ^4.2.2
@@ -10164,8 +10164,8 @@ packages:
     resolution: {integrity: sha512-4UmzQUF5fxvfcYHlbjBmejU+w+hbDnWFx4aS8kBx7nPBHcO2SqPbpAG8snbdg+Xse4pRefR98hgjFgIMCI/UhA==}
     dev: false
 
-  /zustand@5.0.15(@types/react@18.3.31)(react@18.3.1):
-    resolution: {integrity: sha512-MpSEjRiBkA9crSYeOUH32rJC7SVqAbm0Fqcqge/bUi2PPoLcBWKOsG+C8mevmpr8TwXHBVkChbbJiyvkE+i/3A==}
+  /zustand@5.1.0(@types/react@18.3.31)(react@18.3.1):
+    resolution: {integrity: sha512-ciJZlP48M1PTQbVQq81CGVFxHTLpZNrFjKqwjtCU34AWuXTZT/jrF3p9+fI84Cf1eSCMLapxqBy/SNTfwOBuqA==}
     engines: {node: '>=12.20.0'}
     peerDependencies:
       '@types/react': '>=18.0.0'
